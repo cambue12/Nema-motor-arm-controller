@@ -1,0 +1,30 @@
+# macOS junk
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Xcode build artefacts
+ios-bridge/build/
+ios-bridge/*.xcuserdata
+ios-bridge/*.xcworkspace/xcuserdata/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Fusion 360 backup files
+*.f3d.backup
+*.bak
+
+# Temp / log files
+*.log
+tmp/

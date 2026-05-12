@@ -1,0 +1,2406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ARMCTL — Precision Motion</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100vh;overflow:hidden;background:#0C0906;color:#E8DDD0;font-family:'Rajdhani','Trebuchet MS',sans-serif}
+#canvas-wrap{position:fixed;inset:0;z-index:1}
+#vcanvas{display:block;width:100%;height:100%;cursor:grab}
+#vcanvas:active{cursor:grabbing}
+.ov{position:fixed;z-index:10;pointer-events:none}
+.ov>*{pointer-events:auto}
+
+/* HEADER */
+#hdr{top:0;left:0;right:0;padding:16px 36px;display:flex;align-items:center;background:linear-gradient(180deg,rgba(12,9,6,.96) 0%,rgba(12,9,6,0) 100%)}
+.logo-mark{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:6px;color:#E8DDD0;text-shadow:0 0 30px rgba(201,166,77,.25)}
+.hdr-sep{width:1px;height:14px;background:rgba(232,221,208,.12);margin:0 22px;flex-shrink:0}
+#hdr-mid{display:flex;align-items:center;gap:8px;flex:1}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border:1px solid rgba(232,221,208,.09);background:rgba(15,11,8,.75);font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:1.2px;color:rgba(232,221,208,.4);border-radius:2px;backdrop-filter:blur(12px);white-space:nowrap}
+.cdot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.c-off{background:#1E2A38}
+.c-on{background:#30D158;box-shadow:0 0 8px rgba(48,209,88,.6);animation:gp 2.2s infinite}
+.c-err{background:#FF3B30;box-shadow:0 0 8px rgba(255,59,48,.6);animation:ge .65s infinite}
+@keyframes gp{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes ge{0%,100%{opacity:1}50%{opacity:.15}}
+.hdr-nav{display:flex;gap:24px;margin-left:4px}
+.nbtn{font-family:'Share Tech Mono',monospace;font-size:8.5px;letter-spacing:2.5px;color:rgba(232,221,208,.28);background:none;border:none;cursor:pointer;transition:color .2s;text-transform:uppercase;padding:2px 0;position:relative}
+.nbtn::after{content:'';position:absolute;bottom:-2px;left:0;right:0;height:1px;background:#C9A64D;transform:scaleX(0);transition:transform .2s;transform-origin:center}
+.nbtn:hover{color:rgba(232,221,208,.7)}
+.nbtn.on{color:#C9A64D}
+.nbtn.on::after{transform:scaleX(1)}
+.hdr-acts{display:flex;gap:7px;margin-left:20px}
+
+/* BUTTONS */
+.btn{padding:7px 18px;border:1px solid rgba(232,221,208,.13);background:rgba(18,14,10,.65);color:#E8DDD0;cursor:pointer;font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;transition:all .18s cubic-bezier(.4,0,.2,1);backdrop-filter:blur(12px);border-radius:2px;white-space:nowrap;outline:none;position:relative;overflow:hidden}
+.btn::before{content:'';position:absolute;inset:0;background:linear-gradient(120deg,transparent 30%,rgba(232,221,208,.08) 50%,transparent 70%);transform:translateX(-100%);transition:transform .5s}
+.btn:hover::before{transform:translateX(100%)}
+.btn:hover{border-color:rgba(232,221,208,.36);background:rgba(232,221,208,.06);box-shadow:0 2px 12px rgba(0,0,0,.3)}
+.btn:active{transform:scale(.965)}
+.btn-gold{background:#C9A64D;color:#0C0906;border-color:#C9A64D;font-weight:700;box-shadow:0 2px 14px rgba(201,166,77,.2)}
+.btn-gold:hover{background:#D9B85D;border-color:#D9B85D;box-shadow:0 4px 22px rgba(201,166,77,.38)}
+.btn-red{background:rgba(255,59,48,.08);color:#FF5147;border-color:rgba(255,59,48,.28);font-weight:700}
+.btn-red:hover{background:#FF3B30;color:#fff;border-color:#FF3B30;box-shadow:0 4px 20px rgba(255,59,48,.3)}
+.btn-sm{padding:5px 14px;font-size:10px}
+.btn-xs{padding:3px 9px;font-size:9px;letter-spacing:1.5px}
+.btn:disabled{opacity:.22;cursor:not-allowed;pointer-events:none}
+
+/* LEFT PANEL */
+#left-panel{left:36px;top:50%;transform:translateY(-50%);max-width:220px}
+.hero-head{font-family:'Bebas Neue',sans-serif;font-size:80px;line-height:.84;color:#E8DDD0;letter-spacing:1px;margin-bottom:16px}
+.hero-sub{font-family:'Share Tech Mono',monospace;font-size:7.5px;color:rgba(232,221,208,.22);letter-spacing:2.5px;line-height:2.2;text-transform:uppercase}
+.left-status{display:flex;flex-direction:column;gap:7px;margin-top:20px;padding-top:16px;border-top:1px solid rgba(232,221,208,.06)}
+.sr{display:flex;align-items:center;gap:8px}
+.sr-dot{width:4px;height:4px;border-radius:50%;flex-shrink:0}
+.sr-lbl{font-family:'Share Tech Mono',monospace;font-size:7.5px;letter-spacing:1px;color:rgba(232,221,208,.28);text-transform:uppercase}
+.sr-lbl.active{color:rgba(232,221,208,.85)}
+#act-chip-left{margin-top:10px;display:none;padding:4px 10px;border:1px solid rgba(201,166,77,.22);background:rgba(201,166,77,.05);border-radius:2px;font-family:'Share Tech Mono',monospace;font-size:7.5px;color:#C9A64D;letter-spacing:1px}
+#cam-chip-left{margin-top:4px;display:none;padding:4px 10px;border:1px solid rgba(77,209,139,.22);background:rgba(77,209,139,.04);border-radius:2px;font-family:'Share Tech Mono',monospace;font-size:7.5px;color:#4FD18B;letter-spacing:1px}
+
+/* RIGHT PANEL */
+#right-panel{right:36px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:10px;align-items:flex-end}
+.jro{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.jro-key{font-family:'Bebas Neue',sans-serif;font-size:9px;letter-spacing:3.5px;color:rgba(232,221,208,.18);text-transform:uppercase}
+.jro-val{font-family:'Share Tech Mono',monospace;font-size:21px;line-height:1;letter-spacing:-1px}
+.jro-bar{height:1px;background:rgba(232,221,208,.05);width:80px;margin-top:4px;position:relative}
+.jro-fill{height:100%;position:absolute;left:0;top:0;transition:width .12s}
+.jro-div{height:1px;width:50px;background:rgba(232,221,208,.04);margin:2px 0}
+
+/* EE READOUT */
+#ee-readout{position:fixed;z-index:10;bottom:152px;right:36px;text-align:right;pointer-events:none}
+.ee-title{font-family:'Share Tech Mono',monospace;font-size:7px;letter-spacing:2.5px;color:rgba(232,221,208,.15);margin-bottom:4px;text-transform:uppercase}
+.ee-coords{font-family:'Share Tech Mono',monospace;font-size:10px;color:rgba(232,221,208,.42);letter-spacing:.5px}
+
+/* TEST READOUT */
+#test-readout{position:fixed;z-index:10;left:36px;bottom:165px;display:none;padding:10px 14px;background:rgba(12,9,6,.9);border:1px solid rgba(201,166,77,.16);border-radius:3px;backdrop-filter:blur(18px);pointer-events:none;box-shadow:0 4px 28px rgba(0,0,0,.45)}
+.tr-title{font-family:'Share Tech Mono',monospace;font-size:7px;letter-spacing:2px;color:rgba(232,221,208,.22);margin-bottom:8px;text-transform:uppercase}
+.tr-val{font-family:'Share Tech Mono',monospace;font-size:10px;color:#C9A64D;margin-bottom:3px}
+#tr-ik-status{font-family:'Share Tech Mono',monospace;font-size:7.5px;color:#30D158;margin-top:6px}
+
+/* BOTTOM BAR */
+#bottom-bar{bottom:0;left:0;right:0;padding:14px 36px 22px;background:linear-gradient(0deg,rgba(12,9,6,.97) 0%,rgba(12,9,6,0) 100%)}
+#joint-row{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:13px}
+.jctrl{display:flex;flex-direction:column;gap:5px}
+.jc-hd{display:flex;justify-content:space-between;align-items:baseline}
+.jc-name{font-family:'Bebas Neue',sans-serif;font-size:10px;letter-spacing:3px;color:rgba(232,221,208,.28);text-transform:uppercase}
+.jc-val{font-family:'Share Tech Mono',monospace;font-size:10px;color:#C9A64D}
+.jsl{width:100%;-webkit-appearance:none;appearance:none;height:1px;border-radius:1px;outline:none;cursor:pointer;border:none}
+.jsl::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;cursor:pointer;border:none;transition:transform .1s}
+.jsl::-webkit-slider-thumb:hover{transform:scale(1.35)}
+.jsl::-moz-range-thumb{width:12px;height:12px;border-radius:50%;border:none;cursor:pointer}
+#action-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.spacer{flex:1}
+.ag{display:flex;gap:6px}
+select.sel{background:rgba(18,14,10,.75);border:1px solid rgba(232,221,208,.10);color:rgba(232,221,208,.55);padding:5px 9px;font-family:'Share Tech Mono',monospace;font-size:8.5px;letter-spacing:1px;outline:none;border-radius:2px;cursor:pointer;backdrop-filter:blur(10px);transition:border-color .15s}
+select.sel:focus{border-color:rgba(232,221,208,.3)}
+.bottom-hint{font-family:'Share Tech Mono',monospace;font-size:7px;color:rgba(232,221,208,.15);letter-spacing:.5px;white-space:nowrap}
+
+/* FLOATING PANELS */
+.fp{position:fixed;right:0;top:0;bottom:0;width:400px;background:rgba(8,6,4,.98);border-left:1px solid rgba(232,221,208,.06);backdrop-filter:blur(24px);z-index:300;display:flex;flex-direction:column;transform:translateX(110%);transition:transform .32s cubic-bezier(.4,0,.2,1);box-shadow:-20px 0 60px rgba(0,0,0,.5)}
+.fp.open{transform:translateX(0)}
+.fp-hdr{padding:20px 24px;border-bottom:1px solid rgba(232,221,208,.06);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:rgba(12,9,6,.5)}
+.fp-title{font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:4px;color:#E8DDD0;opacity:.92}
+.fp-close{background:rgba(232,221,208,.04);border:1px solid rgba(232,221,208,.1);color:rgba(232,221,208,.35);cursor:pointer;font-size:15px;line-height:1;padding:4px 9px;transition:all .15s;border-radius:2px}
+.fp-close:hover{color:#E8DDD0;border-color:rgba(232,221,208,.38);background:rgba(232,221,208,.07)}
+.fp-body{flex:1;overflow-y:auto;padding:20px 24px}
+.ps{margin-bottom:18px}
+.ps-lbl{font-family:'Share Tech Mono',monospace;font-size:7px;letter-spacing:2.5px;color:rgba(232,221,208,.2);text-transform:uppercase;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid rgba(232,221,208,.05)}
+.ps-row{display:flex;align-items:center;gap:8px;padding:3px 0}
+.ps-k{font-family:'Share Tech Mono',monospace;font-size:8px;color:rgba(232,221,208,.32);width:88px;flex-shrink:0;letter-spacing:.5px}
+.ps-inp{flex:1;background:rgba(232,221,208,.04);border:1px solid rgba(232,221,208,.09);color:#E8DDD0;padding:5px 9px;font-family:'Share Tech Mono',monospace;font-size:10px;outline:none;border-radius:2px;width:100%;transition:border-color .15s}
+.ps-inp:focus{border-color:rgba(201,166,77,.5)}
+.ps-div{height:1px;background:rgba(232,221,208,.05);margin:12px 0}
+.motor-blk{padding:10px;background:rgba(232,221,208,.025);border:1px solid rgba(232,221,208,.07);border-radius:3px;margin-bottom:8px}
+.motor-t{font-family:'Bebas Neue',sans-serif;font-size:10.5px;letter-spacing:2px;margin-bottom:8px}
+.motor-g{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.ml{font-family:'Share Tech Mono',monospace;font-size:7px;color:rgba(232,221,208,.22);margin-bottom:3px;letter-spacing:1px}
+
+/* ACTIVITY GRID */
+.act-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.acard{background:rgba(232,221,208,.025);border:1px solid rgba(232,221,208,.07);border-radius:3px;padding:14px 12px;cursor:pointer;transition:all .18s;display:flex;flex-direction:column;gap:7px}
+.acard:hover{background:rgba(232,221,208,.055);border-color:rgba(201,166,77,.2)}
+.acard.run{border-color:#C9A64D;animation:cpulse 2.2s infinite}
+@keyframes cpulse{0%,100%{box-shadow:none}50%{box-shadow:0 0 16px rgba(201,166,77,.12)}}
+.a-ico{font-family:'Bebas Neue',sans-serif;font-size:26px;line-height:1}
+.a-name{font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:2.5px;color:#E8DDD0}
+.a-kf{font-family:'Share Tech Mono',monospace;font-size:7px;color:rgba(232,221,208,.2);letter-spacing:1px}
+.a-btns{display:flex;gap:5px;margin-top:3px}
+
+/* CONSOLE */
+#con-log-wrap{flex:1;overflow-y:auto;padding:12px 24px;font-family:'Share Tech Mono',monospace;font-size:9.5px;line-height:2.0}
+#con-in-row{padding:10px 24px;border-top:1px solid rgba(232,221,208,.06);display:flex;gap:7px;align-items:center;flex-shrink:0;background:rgba(10,8,5,.6)}
+#con-input{flex:1;background:rgba(232,221,208,.04);border:1px solid rgba(232,221,208,.09);color:#E8DDD0;padding:6px 10px;font-family:'Share Tech Mono',monospace;font-size:11px;outline:none;border-radius:2px;transition:border-color .15s}
+#con-input:focus{border-color:rgba(201,166,77,.5)}
+.ls{color:#C9A64D}.lr{color:rgba(232,221,208,.85)}.le{color:#FF5147}.li{color:#30D158}.lm{color:rgba(232,221,208,.22)}
+
+/* CAMERA PANEL */
+#cam-video-wrap{position:relative;background:#050302;border-radius:3px;overflow:hidden;margin-bottom:10px;border:1px solid rgba(232,221,208,.07)}
+#cam-video{display:block;width:100%;height:auto;opacity:.92}
+#cam-overlay{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+#cam-status{font-family:'Share Tech Mono',monospace;font-size:7.5px;letter-spacing:1.5px;padding:4px 0;color:rgba(232,221,208,.28);text-transform:uppercase;margin-bottom:8px}
+.cam-map-title{font-family:'Share Tech Mono',monospace;font-size:7px;letter-spacing:2px;color:rgba(232,221,208,.22);margin-bottom:7px;text-transform:uppercase}
+.cam-map-row{display:flex;justify-content:space-between;font-family:'Share Tech Mono',monospace;font-size:8px;color:rgba(232,221,208,.4);padding:3px 0;border-bottom:1px solid rgba(232,221,208,.04)}
+.cam-row{display:flex;align-items:center;gap:9px;padding:2px 0}
+.cam-lbl{font-family:'Share Tech Mono',monospace;font-size:7.5px;color:rgba(232,221,208,.3);width:82px;flex-shrink:0;letter-spacing:.5px}
+.cam-bar{height:3px;background:rgba(232,221,208,.07);border-radius:2px;flex:1;position:relative;overflow:hidden}
+.cam-fill{height:100%;border-radius:2px;position:absolute;left:0;top:0;transition:width .12s}
+.calib-instruction{font-family:'Share Tech Mono',monospace;font-size:8px;color:#FFD60A;line-height:1.9;padding:8px 10px;background:rgba(255,214,10,.04);border:1px solid rgba(255,214,10,.15);border-radius:3px;margin-top:6px}
+
+/* ── BOOT SEQUENCE ──────────────────────────────────────────────────────── */
+#boot-screen{position:fixed;inset:0;z-index:9999;background:radial-gradient(ellipse at center,#1a120a 0%,#0a0805 60%,#000 100%);display:flex;align-items:center;justify-content:center;overflow:hidden;transition:opacity .9s cubic-bezier(.4,0,.2,1)}
+#boot-screen.gone{opacity:0;pointer-events:none}
+#boot-stars{position:absolute;inset:0;background-image:radial-gradient(1px 1px at 12% 18%,#C9A64D,transparent),radial-gradient(1px 1px at 67% 33%,#E8DDD0,transparent),radial-gradient(1px 1px at 33% 72%,#C9A64D,transparent),radial-gradient(1px 1px at 88% 81%,#E8DDD0,transparent),radial-gradient(1.5px 1.5px at 50% 50%,#FFE9B0,transparent),radial-gradient(1px 1px at 22% 90%,#E8DDD0,transparent),radial-gradient(1px 1px at 76% 12%,#C9A64D,transparent);opacity:.3;animation:twinkle 4s ease-in-out infinite}
+@keyframes twinkle{0%,100%{opacity:.15}50%{opacity:.4}}
+#boot-grid-bg{position:absolute;inset:0;background-image:linear-gradient(rgba(201,166,77,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(201,166,77,.05) 1px,transparent 1px);background-size:48px 48px;mask-image:radial-gradient(ellipse at center,#000 30%,transparent 75%);-webkit-mask-image:radial-gradient(ellipse at center,#000 30%,transparent 75%);animation:gridslide 20s linear infinite}
+@keyframes gridslide{from{background-position:0 0}to{background-position:48px 48px}}
+#boot-content{position:relative;z-index:2;text-align:center;max-width:480px;padding:0 30px}
+#boot-logo-wrap{position:relative;width:200px;height:200px;margin:0 auto 36px;display:flex;align-items:center;justify-content:center;flex-direction:column}
+#boot-ring,#boot-ring-2,#boot-ring-3{position:absolute;border-radius:50%;border:1px solid rgba(201,166,77,.3)}
+#boot-ring{width:200px;height:200px;border-top-color:#C9A64D;border-right-color:#C9A64D;animation:bspin 2.4s linear infinite}
+#boot-ring-2{width:160px;height:160px;border-bottom-color:#C9A64D;border-left-color:#C9A64D;animation:bspin 3.2s linear infinite reverse;border-color:rgba(201,166,77,.18)}
+#boot-ring-3{width:230px;height:230px;border:1px dashed rgba(201,166,77,.18);animation:bspin 8s linear infinite}
+@keyframes bspin{to{transform:rotate(360deg)}}
+#boot-logo{font-family:'Bebas Neue',sans-serif;font-size:42px;letter-spacing:14px;color:#E8DDD0;text-shadow:0 0 24px rgba(201,166,77,.5),0 0 60px rgba(201,166,77,.3);animation:bglow 2.6s ease-in-out infinite}
+@keyframes bglow{0%,100%{text-shadow:0 0 20px rgba(201,166,77,.4)}50%{text-shadow:0 0 36px rgba(201,166,77,.7),0 0 80px rgba(201,166,77,.4)}}
+#boot-tag{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:4px;color:rgba(201,166,77,.55);margin-top:6px}
+#boot-checks{display:flex;flex-direction:column;gap:6px;margin-bottom:24px;text-align:left}
+.bchk{display:flex;justify-content:space-between;font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:1.5px;color:rgba(232,221,208,.25);padding:5px 10px;border:1px solid rgba(232,221,208,.05);border-radius:2px;background:rgba(0,0,0,.25);transition:all .35s}
+.bchk.ok{color:#4FD18B;border-color:rgba(79,209,139,.18);background:rgba(79,209,139,.05)}
+.bchk.ok .bchk-stat{color:#4FD18B}
+.bchk-stat{color:rgba(232,221,208,.3)}
+#boot-bar-wrap{height:2px;background:rgba(232,221,208,.06);border-radius:1px;overflow:hidden;margin-bottom:14px}
+#boot-bar{height:100%;width:0;background:linear-gradient(90deg,#C9A64D,#FFE9B0,#C9A64D);box-shadow:0 0 12px rgba(201,166,77,.6);transition:width .4s cubic-bezier(.4,0,.2,1)}
+#boot-status{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:3px;color:rgba(201,166,77,.7)}
+
+/* ── TOAST NOTIFICATIONS ────────────────────────────────────────────────── */
+#toast-container{position:fixed;top:64px;right:36px;z-index:400;display:flex;flex-direction:column;gap:8px;pointer-events:none;align-items:flex-end}
+.toast{display:flex;align-items:stretch;background:rgba(12,9,6,.96);border:1px solid rgba(232,221,208,.1);border-radius:3px;backdrop-filter:blur(20px);box-shadow:0 8px 32px rgba(0,0,0,.5);min-width:240px;max-width:380px;overflow:hidden;opacity:0;transform:translateX(20px);transition:all .3s cubic-bezier(.4,0,.2,1)}
+.toast.show{opacity:1;transform:translateX(0)}
+.toast-bar{width:3px;flex-shrink:0;background:#C9A64D}
+.toast.ok .toast-bar{background:#4FD18B}
+.toast.err .toast-bar{background:#FF3B30}
+.toast.warn .toast-bar{background:#FFD60A}
+.toast.info .toast-bar{background:#6DA8FF}
+.toast-msg{padding:10px 14px;font-family:'Share Tech Mono',monospace;font-size:9.5px;color:#E8DDD0;letter-spacing:.5px;line-height:1.5}
+
+/* ── CONFIRMATION MODAL ─────────────────────────────────────────────────── */
+#confirm-modal{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.72);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s}
+#confirm-modal.open{opacity:1;pointer-events:auto}
+#confirm-card{position:relative;background:#0E0A06;border:1px solid rgba(201,166,77,.25);max-width:440px;padding:36px 32px 28px;text-align:center;transform:scale(.94);transition:transform .25s cubic-bezier(.4,0,.2,1);box-shadow:0 30px 80px rgba(0,0,0,.7),0 0 0 1px rgba(201,166,77,.06)}
+#confirm-modal.open #confirm-card{transform:scale(1)}
+[id^="confirm-corner"]{position:absolute;width:14px;height:14px;border:1.5px solid #C9A64D}
+#confirm-corner-tl{top:-1px;left:-1px;border-right:none;border-bottom:none}
+#confirm-corner-tr{top:-1px;right:-1px;border-left:none;border-bottom:none}
+#confirm-corner-bl{bottom:-1px;left:-1px;border-right:none;border-top:none}
+#confirm-corner-br{bottom:-1px;right:-1px;border-left:none;border-top:none}
+#confirm-icon{font-size:30px;color:#C9A64D;margin-bottom:14px;text-shadow:0 0 24px rgba(201,166,77,.5)}
+#confirm-title{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:5px;color:#E8DDD0;margin-bottom:14px}
+#confirm-body{font-family:'Share Tech Mono',monospace;font-size:10.5px;line-height:1.85;color:rgba(232,221,208,.7);letter-spacing:.4px;margin-bottom:24px}
+#confirm-body b{color:#C9A64D}
+#confirm-actions{display:flex;gap:10px;justify-content:center}
+
+/* ── MOTION BANNER ──────────────────────────────────────────────────────── */
+#motion-banner{display:none;position:fixed;top:62px;left:50%;transform:translateX(-50%);z-index:13;align-items:center;gap:12px;padding:6px 16px;background:rgba(12,9,6,.92);border:1px solid rgba(201,166,77,.25);border-radius:24px;backdrop-filter:blur(14px);box-shadow:0 4px 28px rgba(0,0,0,.4),0 0 0 1px rgba(201,166,77,.05)}
+.mb-pulse{width:6px;height:6px;border-radius:50%;background:#C9A64D;box-shadow:0 0 10px #C9A64D;animation:gp 1.4s infinite}
+.mb-label{font-family:'Bebas Neue',sans-serif;font-size:10px;letter-spacing:3.5px;color:#C9A64D}
+.mb-dots{display:flex;gap:8px}
+.mb-axis{font-family:'Share Tech Mono',monospace;font-size:8px;color:rgba(232,221,208,.55);display:flex;align-items:center;gap:3px;letter-spacing:1px}
+.mb-dot{width:5px;height:5px;border-radius:50%;opacity:.15;transition:opacity .15s,box-shadow .15s}
+.mb-dot[style*="opacity: 1"]{box-shadow:0 0 6px currentColor}
+
+/* ── SAFETY PILL ────────────────────────────────────────────────────────── */
+.safety-pill{display:inline-flex;align-items:center;gap:1px;padding:2px;background:rgba(0,0,0,.4);border:1px solid rgba(232,221,208,.08);border-radius:16px;flex-shrink:0}
+.sp-label{font-family:'Share Tech Mono',monospace;font-size:7px;letter-spacing:1.5px;color:rgba(232,221,208,.35);padding:0 8px 0 6px}
+.sp-btn{background:transparent;border:none;font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:1.5px;color:rgba(232,221,208,.35);padding:4px 10px;cursor:pointer;border-radius:14px;transition:all .15s}
+.sp-btn:hover{color:#E8DDD0;background:rgba(232,221,208,.05)}
+.sp-btn.on{background:rgba(201,166,77,.18);color:#FFE9B0;box-shadow:inset 0 0 0 1px rgba(201,166,77,.3)}
+.sp-btn[data-safety="NORMAL"].on{background:rgba(201,166,77,.18);color:#FFE9B0;box-shadow:inset 0 0 0 1px rgba(201,166,77,.3)}
+.sp-btn[data-safety="FAST"].on{background:rgba(255,140,66,.18);color:#FFB070;box-shadow:inset 0 0 0 1px rgba(255,140,66,.4)}
+.sp-btn[data-safety="SAFE"].on{background:rgba(79,209,139,.16);color:#7FECAA;box-shadow:inset 0 0 0 1px rgba(79,209,139,.35)}
+
+/* MISC */
+::-webkit-scrollbar{width:2px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(232,221,208,.1);border-radius:1px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.info-box{padding:7px 10px;background:rgba(232,221,208,.03);border:1px solid rgba(232,221,208,.07);border-radius:3px;font-family:'Share Tech Mono',monospace;font-size:7.5px;color:rgba(232,221,208,.28);line-height:2.0}
+.warn-box{padding:7px 10px;background:rgba(255,214,10,.04);border:1px solid rgba(255,214,10,.14);border-radius:3px;font-family:'Share Tech Mono',monospace;font-size:7.5px;color:#FFD60A;line-height:2.0}
+.about-ver{color:#C9A64D;font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:2.5px;margin-bottom:10px}
+</style>
+</head>
+<body>
+
+<!-- BOOT SEQUENCE -->
+<div id="boot-screen">
+  <div id="boot-stars"></div>
+  <div id="boot-grid-bg"></div>
+  <div id="boot-content">
+    <div id="boot-logo-wrap">
+      <div id="boot-ring"></div>
+      <div id="boot-ring-2"></div>
+      <div id="boot-ring-3"></div>
+      <div id="boot-logo">ARMCTL</div>
+      <div id="boot-tag">PRECISION MOTION  ·  v2.1</div>
+    </div>
+    <div id="boot-checks">
+      <div class="bchk" data-step="0"><span class="bchk-name">SYSTEM CORE</span><span class="bchk-stat">…</span></div>
+      <div class="bchk" data-step="1"><span class="bchk-name">3D RENDER PIPELINE</span><span class="bchk-stat">…</span></div>
+      <div class="bchk" data-step="2"><span class="bchk-name">KINEMATIC SOLVER</span><span class="bchk-stat">…</span></div>
+      <div class="bchk" data-step="3"><span class="bchk-name">SAFETY INTERLOCK</span><span class="bchk-stat">…</span></div>
+      <div class="bchk" data-step="4"><span class="bchk-name">SERIAL BRIDGE</span><span class="bchk-stat">…</span></div>
+    </div>
+    <div id="boot-bar-wrap"><div id="boot-bar"></div></div>
+    <div id="boot-status">INITIALIZING…</div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div id="toast-container"></div>
+
+<!-- CONFIRMATION MODAL -->
+<div id="confirm-modal">
+  <div id="confirm-card">
+    <div id="confirm-corner-tl"></div><div id="confirm-corner-tr"></div>
+    <div id="confirm-corner-bl"></div><div id="confirm-corner-br"></div>
+    <div id="confirm-icon">⚠</div>
+    <div id="confirm-title">CONFIRM</div>
+    <div id="confirm-body"></div>
+    <div id="confirm-actions">
+      <button class="btn" id="confirm-cancel">CANCEL</button>
+      <button class="btn btn-gold" id="confirm-ok">CONFIRM</button>
+    </div>
+  </div>
+</div>
+
+<!-- MOTION BANNER -->
+<div id="motion-banner">
+  <span class="mb-pulse"></span>
+  <span class="mb-label">MOTION</span>
+  <div class="mb-dots">
+    <span class="mb-axis"><span class="mb-dot" id="mot-dot-X" style="background:#4FD18B"></span>X</span>
+    <span class="mb-axis"><span class="mb-dot" id="mot-dot-Y" style="background:#C9A64D"></span>Y</span>
+    <span class="mb-axis"><span class="mb-dot" id="mot-dot-Z" style="background:#6DA8FF"></span>Z</span>
+    <span class="mb-axis"><span class="mb-dot" id="mot-dot-A" style="background:#B9A7FF"></span>A</span>
+  </div>
+</div>
+
+<div id="canvas-wrap"><canvas id="vcanvas"></canvas></div>
+<!-- Vignette -->
+<div style="position:fixed;inset:0;z-index:2;pointer-events:none;background:radial-gradient(ellipse at 50% 50%,transparent 55%,rgba(12,9,6,.55) 100%)"></div>
+<!-- Scanlines -->
+<div style="position:fixed;inset:0;z-index:2;pointer-events:none;background:repeating-linear-gradient(0deg,transparent 0px,transparent 2px,rgba(0,0,0,.028) 2px,rgba(0,0,0,.028) 3px);opacity:.7"></div>
+
+<!-- HEIGHT LOCK HUD -->
+<div id="hl-hud" style="display:none;position:fixed;z-index:15;top:72px;left:50%;transform:translateX(-50%);pointer-events:none;background:rgba(12,9,6,.9);border:1px solid rgba(201,166,77,.4);border-radius:3px;padding:7px 20px;backdrop-filter:blur(18px);box-shadow:0 0 0 1px rgba(201,166,77,.06),0 4px 32px rgba(201,166,77,.14);align-items:center;gap:14px">
+  <div style="width:6px;height:6px;border-radius:50%;background:#C9A64D;box-shadow:0 0 10px rgba(201,166,77,.8);animation:gp 1.8s infinite;flex-shrink:0"></div>
+  <div style="font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:4px;color:#C9A64D;white-space:nowrap">HEIGHT LOCK</div>
+  <div style="width:1px;height:12px;background:rgba(201,166,77,.25)"></div>
+  <div id="hl-hud-val" style="font-family:'Share Tech Mono',monospace;font-size:9px;color:#30D158;letter-spacing:.5px;white-space:nowrap">—</div>
+  <div style="width:1px;height:12px;background:rgba(201,166,77,.25)"></div>
+  <div id="hl-ik-status" style="font-family:'Share Tech Mono',monospace;font-size:8px;color:#30D158;letter-spacing:1px;white-space:nowrap">✓ LOCKED</div>
+</div>
+
+<!-- HEADER -->
+<div class="ov" id="hdr">
+  <span class="logo-mark">ARMCTL</span>
+  <div class="hdr-sep"></div>
+  <div id="hdr-mid">
+    <div class="chip"><div class="cdot c-off" id="conn-dot"></div><span id="conn-lbl">OFFLINE</span></div>
+    <div class="chip"><div class="cdot c-off" id="drv-dot"></div><span id="drv-lbl">DRIVERS OFF</span></div>
+    <div class="chip" id="act-chip-hdr" style="display:none;color:#C9A64D;border-color:rgba(201,166,77,.2)">▶ <span id="act-lbl-hdr"></span></div>
+    <div class="chip" id="cam-chip-hdr" style="display:none;color:#4FD18B;border-color:rgba(77,209,139,.2)">◉ CAMERA ACTIVE</div>
+    <div class="chip" id="fw-chip" style="display:none;color:#30D158"><span id="fw-lbl"></span></div>
+    <div class="chip" id="safety-chip" style="color:#4FD18B;border-color:rgba(79,209,139,.25)">◆ SAFE</div>
+  </div>
+  <nav class="hdr-nav">
+    <button class="nbtn" data-panel="camera">CAMERA</button>
+    <button class="nbtn" data-panel="activities">ACTIVITIES</button>
+    <button class="nbtn" data-panel="settings">SETTINGS</button>
+    <button class="nbtn" data-panel="console">CONSOLE</button>
+  </nav>
+  <div class="hdr-acts">
+    <button class="btn btn-sm" id="hdr-conn-btn">CONNECT</button>
+    <button class="btn btn-sm btn-red" id="hdr-estop-btn">⚠ STOP</button>
+  </div>
+</div>
+
+<!-- LEFT PANEL -->
+<div class="ov" id="left-panel">
+  <div class="hero-head">PREC<br>ISION<br>IN<br>MOT<br>ION.</div>
+  <div class="hero-sub">CNC SHIELD · DM556 · ESP32<br>XYZA · WEBSERIAL</div>
+  <div class="left-status">
+    <div class="sr"><div class="sr-dot c-off" id="sl-c-dot"></div><span class="sr-lbl" id="sl-c-lbl">NOT CONNECTED</span></div>
+    <div class="sr"><div class="sr-dot c-off" id="sl-d-dot"></div><span class="sr-lbl" id="sl-d-lbl">DRIVERS DISABLED</span></div>
+  </div>
+  <div id="act-chip-left"></div>
+  <div id="cam-chip-left"></div>
+</div>
+
+<!-- RIGHT PANEL -->
+<div class="ov" id="right-panel"></div>
+
+<!-- EE READOUT -->
+<div id="ee-readout"><div class="ee-title">END EFFECTOR</div><div class="ee-coords" id="ee-coords">X 0.0 · Y 0.0 · Z 0.0</div></div>
+
+<!-- TEST MOVEMENT READOUT -->
+<div id="test-readout">
+  <div class="tr-title">TEST MOVE · IK CONSTRAINT</div>
+  <div class="tr-val" id="tr-sh">SHOULDER  0.0°</div>
+  <div class="tr-val" id="tr-el">ELBOW  0.0°</div>
+  <div class="tr-val" id="tr-h">EE HEIGHT  0.0 mm</div>
+  <div id="tr-ik-status">✓ IK SATISFIED</div>
+</div>
+
+<!-- BOTTOM BAR -->
+<div class="ov" id="bottom-bar">
+  <div id="joint-row"></div>
+  <div id="action-row">
+    <div class="ag">
+      <button class="btn btn-sm btn-gold" id="dash-conn-btn">CONNECT</button>
+      <button class="btn btn-sm" id="drv-btn">ENABLE</button>
+    </div>
+    <div class="ag">
+      <button class="btn btn-sm" data-preset="Home">HOME</button>
+      <button class="btn btn-sm" data-preset="Ready">READY</button>
+      <button class="btn btn-sm" data-preset="Reach">REACH</button>
+      <button class="btn btn-sm" id="zero-btn">ZERO</button>
+    </div>
+    <!-- HEIGHT LOCK -->
+    <div style="width:1px;height:16px;background:rgba(232,221,208,.08);flex-shrink:0"></div>
+    <div class="ag" style="align-items:center;gap:6px">
+      <button class="btn btn-sm" id="hl-set-btn" style="opacity:0.4" title="Capture current claw height as lock target">SET HEIGHT</button>
+      <button class="btn btn-sm" id="hl-toggle-btn">HEIGHT LOCK</button>
+    </div>
+    <div class="spacer"></div>
+    <div class="safety-pill">
+      <span class="sp-label">SAFETY</span>
+      <button class="sp-btn on" data-safety="SAFE">SAFE</button>
+      <button class="sp-btn" data-safety="NORMAL">NORMAL</button>
+      <button class="sp-btn" data-safety="FAST">FAST</button>
+    </div>
+    <div class="ag">
+      <button class="btn btn-sm" id="test-btn">TEST MOVE</button>
+      <button class="btn btn-sm btn-red" data-cmd="STOP ALL" style="font-weight:700">⏹ STOP ALL</button>
+    </div>
+    <select class="sel" id="sel-mode"><option value="sim">SIMULATION</option><option value="serial">SERIAL</option></select>
+    <select class="sel" id="sel-baud"><option>9600</option><option>57600</option><option selected>115200</option><option>230400</option></select>
+    <span class="bottom-hint">DRAG · ORBIT &nbsp;&nbsp; SCROLL · ZOOM</span>
+  </div>
+</div>
+
+<!-- FLOATING: CAMERA -->
+<div class="fp" id="fp-camera" style="width:420px">
+  <div class="fp-hdr"><span class="fp-title">CAMERA CONTROL</span><button class="fp-close" data-close="camera">×</button></div>
+  <div class="fp-body" style="display:flex;flex-direction:column">
+    <div id="cam-video-wrap">
+      <video id="cam-video" autoplay playsinline muted></video>
+      <canvas id="cam-overlay"></canvas>
+    </div>
+    <div id="cam-status">● CAMERA OFFLINE</div>
+    <div id="cam-controls">
+      <div class="g2">
+        <button class="btn btn-sm btn-gold" id="cam-start-btn">START CAMERA</button>
+        <button class="btn btn-sm" id="cam-flip-btn">FLIP CAMERA</button>
+      </div>
+      <div class="g2" style="margin-bottom:6px">
+        <button class="btn btn-sm btn-gold" id="cam-dl-btn">DOWNLOAD MODEL</button>
+        <div id="cam-model-status" style="font-family:'Share Tech Mono',monospace;font-size:8px;color:rgba(232,221,208,.3);display:flex;align-items:center;padding-left:6px;letter-spacing:.5px">NOT LOADED</div>
+      </div>
+      <div class="g2">
+        <button class="btn btn-sm" id="cam-calib-btn" disabled>CALIBRATE GRID</button>
+        <button class="btn btn-sm btn-gold" id="cam-control-btn" disabled>ENABLE CONTROL</button>
+      </div>
+      <div class="g3" style="margin-top:6px">
+        <button class="btn btn-sm" id="cam-cal-low-btn" disabled>CAL LOW</button>
+        <button class="btn btn-sm" id="cam-cal-high-btn" disabled>CAL HIGH</button>
+        <div id="cam-depth-status" style="font-family:'Share Tech Mono',monospace;font-size:8px;color:rgba(232,221,208,.3);display:flex;align-items:center;letter-spacing:.5px;line-height:1.6">PALM DOWN=LOW · PALM UP=HIGH</div>
+      </div>
+      <div class="g2" style="margin-top:6px">
+        <button class="btn btn-sm" id="cam-finger-btn" disabled>FINGER MODE</button>
+        <div id="finger-status" style="font-family:'Share Tech Mono',monospace;font-size:7px;color:rgba(232,221,208,.22);display:flex;align-items:center;padding-left:6px;letter-spacing:.5px;line-height:1.7">IDX·MID·RING·PINKY<br>BENT=+ · THUMB=−</div>
+      </div>
+      <div id="calib-instruction" class="calib-instruction" style="display:none">
+        Click the 4 outer corners of the 2×2 checkerboard:<br>
+        <strong>Top-Left → Top-Right → Bottom-Left → Bottom-Right</strong><br>
+        <span id="calib-count">0/4 corners clicked</span>
+      </div>
+      <div class="ps-div"></div>
+      <div>
+        <div class="cam-map-title">HAND → JOINT MAPPING</div>
+        <div class="cam-map-row"><span>HAND LEFT/RIGHT</span><span style="color:#4FD18B">→ BASE ±90°</span></div>
+        <div class="cam-map-row"><span>HAND NEAR/FAR</span><span style="color:#C9A64D">→ SHOULDER 0→90°</span></div>
+        <div class="cam-map-row"><span>HAND HEIGHT (DEPTH)</span><span style="color:#6DA8FF">→ ELBOW ±140°</span></div>
+        <div class="cam-map-row"><span>WRIST ROTATION</span><span style="color:#B9A7FF">→ WRIST ROLL</span></div>
+        <div class="cam-map-row"><span>FIST GESTURE</span><span style="color:#D6C8A2">→ CLOSE CLAW</span></div>
+      </div>
+      <div class="ps-div"></div>
+      <div class="cam-row"><span class="cam-lbl">SMOOTHING</span>
+        <input type="range" id="cam-smooth-sl" min="1" max="30" value="12" style="-webkit-appearance:none;appearance:none;flex:1;height:1px;background:rgba(232,221,208,.12);outline:none;border:none">
+        <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:#C9A64D;width:24px;text-align:right" id="cam-smooth-val">12</span>
+      </div>
+      <div class="cam-row"><span class="cam-lbl">HAND DETECTED</span>
+        <div class="cam-bar" style="flex:1"><div class="cam-fill" id="hand-conf-fill" style="width:0%;background:#4FD18B"></div></div>
+        <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(232,221,208,.4)" id="hand-conf-lbl">—</span>
+      </div>
+      <div id="cam-calib-status" class="info-box" style="margin-top:6px">NOT CALIBRATED — Press Calibrate Grid to set scale</div>
+      <div class="warn-box" id="cam-warn" style="display:none;margin-top:6px">
+        Camera needs HTTPS or localhost.<br>Run: <strong>python3 -m http.server 8888</strong><br>Then: <strong>http://localhost:8888/armctl.html</strong><br>iPhone via Continuity Camera works too.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FLOATING: ACTIVITIES -->
+<div class="fp" id="fp-activities">
+  <div class="fp-hdr"><span class="fp-title">ACTIVITIES</span><button class="fp-close" data-close="activities">×</button></div>
+  <div class="fp-body"><div class="act-grid" id="act-grid"></div></div>
+</div>
+
+<!-- FLOATING: SETTINGS -->
+<div class="fp" id="fp-settings">
+  <div class="fp-hdr"><span class="fp-title">SETTINGS</span><button class="fp-close" data-close="settings">×</button></div>
+  <div class="fp-body">
+    <div class="ps"><div class="ps-lbl">Connection</div>
+      <div class="ps-row"><span class="ps-k">MODE</span><select id="s-mode" class="ps-inp" style="cursor:pointer"><option value="sim">Simulation</option><option value="serial">Serial</option></select></div>
+      <div class="ps-row"><span class="ps-k">BAUD</span><select id="s-baud" class="ps-inp" style="cursor:pointer"><option>9600</option><option>57600</option><option selected>115200</option><option>230400</option></select></div>
+    </div>
+    <div class="ps-div"></div>
+    <div class="ps"><div class="ps-lbl">Motor Calibration</div>
+      <div class="info-box" style="margin-bottom:10px">Y(Shoulder)→fw.A(DM556) · A(Wrist)→fw.Y(Shield)</div>
+      <div id="motor-rows"></div>
+    </div>
+    <div class="ps-div"></div>
+    <div class="ps"><div class="ps-lbl">Motion</div>
+      <div class="ps-row"><span class="ps-k">JOG STEP °</span><input type="number" id="inp-jog" value="5" class="ps-inp"></div>
+      <div class="ps-row"><span class="ps-k">MAX SPEED</span><input type="number" id="inp-spd" value="220" class="ps-inp"></div>
+      <div class="ps-row"><span class="ps-k">ACCELERATION</span><input type="number" id="inp-acc" value="140" class="ps-inp"></div>
+      <button class="btn btn-sm btn-gold" id="apply-spd-btn" style="margin-top:8px">APPLY TO FIRMWARE</button>
+    </div>
+    <div class="ps-div"></div>
+    <div class="ps"><div class="ps-lbl">About</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:7.5px;color:rgba(232,221,208,.28);line-height:2.3">
+        <div class="about-ver">ARMCTL V2.1.0</div>
+        <div>Shoulder 0°=up · ±90° range</div>
+        <div>Elbow 0°=straight · ±140° range</div>
+        <div>Wrist rolls around arm long axis</div>
+        <div>Camera: MediaPipe Hands</div>
+        <div>Calibration: 2"×2" checkerboard grid</div>
+        <div style="margin-top:8px;color:rgba(232,221,208,.15)">L1=130mm · L2=100mm · L3=30mm</div>
+        <div style="color:rgba(232,221,208,.15)">Serve: python3 -m http.server 8888</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FLOATING: CONSOLE -->
+<div class="fp" id="fp-console" style="flex-direction:column">
+  <div class="fp-hdr"><span class="fp-title">CONSOLE</span><button class="fp-close" data-close="console">×</button></div>
+  <div id="con-log-wrap"></div>
+  <div id="con-in-row">
+    <select id="con-dest" class="sel" style="width:80px;flex-shrink:0"><option>Stepper</option><option>Servo</option></select>
+    <input id="con-input" placeholder="STATUS · MOVE X 200 · ENABLE ALL · ID">
+    <button class="btn btn-sm btn-gold" id="con-send">SEND</button>
+    <button class="btn btn-sm" id="con-clear">CLR</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+'use strict';
+
+// ── CONSTANTS ─────────────────────────────────────────────────────────────────
+var JOINTS = [
+  {key:'X',    name:'Base',     color:'#4FD18B', min:-180, max:180,  def:0,   unit:'°', fwAxis:'X', inv:false, ms:8, spr:200, gr:1.0},
+  {key:'Y',    name:'Shoulder', color:'#C9A64D', min:-90,  max:90,   def:0,   unit:'°', fwAxis:'A', inv:true,  ms:8, spr:200, gr:5.0},
+  {key:'Z',    name:'Elbow',    color:'#6DA8FF', min:-140, max:140,  def:0,   unit:'°', fwAxis:'Z', inv:false, ms:1, spr:200, gr:5.0},
+  {key:'A',    name:'Wrist',    color:'#B9A7FF', min:-720, max:720,  def:0,   unit:'°', fwAxis:'Y', inv:false, ms:1, spr:200, gr:1.0},
+  {key:'CLAW', name:'Claw',     color:'#D6C8A2', min:0,    max:100,  def:20,  unit:'%', fwAxis:null,inv:false, ms:1, spr:200, gr:1.0},
+];
+// Arm dimensions (mm) — visual model dimensions, also used by FK/IK
+// Tuned to match the Fusion 360 reference: short dome base, long upper arm,
+// short forearm + long tapered "horn" wrist tip.
+var L0=48, L1=220, L2=60, L3=140;
+var COL_H = 78; // shoulder pivot height above base top
+
+var PRESETS = {
+  Home:    {X:0,  Y:0,  Z:0,  A:0,  CLAW:20},
+  Ready:   {X:0,  Y:45, Z:25, A:0,  CLAW:28},
+  Reach:   {X:22, Y:60, Z:45, A:0,  CLAW:36},
+  Retract: {X:0,  Y:30, Z:-20,A:0,  CLAW:20},
+};
+var ACTIVITIES = [
+  {name:'wave',  label:'Wave',        ic:'W', loops:false, color:'#4FD18B', kf:[{X:40,Y:55,Z:30,A:0,CLAW:20,d:.7},{X:40,Y:55,Z:30,A:70,CLAW:40,d:.3},{X:40,Y:55,Z:30,A:-70,CLAW:20,d:.3},{X:40,Y:55,Z:30,A:70,CLAW:40,d:.3},{X:40,Y:55,Z:30,A:-70,CLAW:20,d:.3},{X:0,Y:0,Z:0,A:0,CLAW:20,d:.9}]},
+  {name:'dance', label:'Dance',       ic:'D', loops:true,  color:'#C9A64D', kf:[{X:-55,Y:35,Z:20,A:45,CLAW:60,d:.7},{X:55,Y:60,Z:-20,A:-45,CLAW:20,d:.7},{X:0,Y:80,Z:40,A:90,CLAW:80,d:.7},{X:-30,Y:45,Z:-35,A:-90,CLAW:20,d:.7}]},
+  {name:'scan',  label:'Scan',        ic:'S', loops:true,  color:'#6DA8FF', kf:[{X:-90,Y:40,Z:0,A:0,CLAW:30,d:2},{X:90,Y:40,Z:0,A:0,CLAW:30,d:4},{X:-90,Y:40,Z:0,A:0,CLAW:30,d:4}]},
+  {name:'grab',  label:'Grab & Lift', ic:'G', loops:false, color:'#B9A7FF', kf:[{X:0,Y:15,Z:0,A:0,CLAW:80,d:.6},{X:0,Y:15,Z:0,A:0,CLAW:5,d:.8},{X:0,Y:70,Z:40,A:180,CLAW:5,d:1.2},{X:40,Y:50,Z:25,A:0,CLAW:5,d:.8},{X:40,Y:50,Z:25,A:0,CLAW:80,d:.5}]},
+  {name:'salute',label:'Salute',      ic:'!', loops:false, color:'#4FD18B', kf:[{X:0,Y:0,Z:-95,A:0,CLAW:10,d:.8},{X:0,Y:0,Z:-95,A:0,CLAW:10,d:.5},{X:0,Y:0,Z:0,A:0,CLAW:20,d:.8}]},
+  {name:'nod',   label:'Nod',         ic:'N', loops:false, color:'#C9A64D', kf:[{X:0,Y:60,Z:30,A:0,CLAW:20,d:.5},{X:0,Y:35,Z:10,A:0,CLAW:20,d:.4},{X:0,Y:60,Z:30,A:0,CLAW:20,d:.4},{X:0,Y:35,Z:10,A:0,CLAW:20,d:.4},{X:0,Y:0,Z:0,A:0,CLAW:20,d:.6}]},
+  {name:'spin',  label:'Spin',        ic:'~', loops:true,  color:'#6DA8FF', kf:[{X:0,Y:40,Z:20,A:0,CLAW:40,d:.1},{X:90,Y:40,Z:20,A:180,CLAW:40,d:.6},{X:180,Y:40,Z:20,A:360,CLAW:40,d:.6},{X:-90,Y:40,Z:20,A:180,CLAW:40,d:.6},{X:0,Y:40,Z:20,A:0,CLAW:40,d:.6}]},
+  {name:'pwrdn', label:'Power Down',  ic:'X', loops:false, color:'#FF3B30', kf:[{X:0,Y:0,Z:0,A:0,CLAW:100,d:.3},{X:0,Y:0,Z:0,A:0,CLAW:0,d:.3},{X:0,Y:0,Z:0,A:0,CLAW:100,d:.3},{X:0,Y:0,Z:0,A:0,CLAW:0,d:2}]},
+  // ── Newer movements taking advantage of the wider elbow range (±140°) ──
+  {name:'stretch',label:'Stretch',     ic:'↥', loops:false, color:'#4FD18B', kf:[{X:0,Y:0,Z:0,A:0,CLAW:30,d:.6},{X:0,Y:80,Z:0,A:0,CLAW:30,d:1.6},{X:0,Y:80,Z:0,A:360,CLAW:30,d:1.0},{X:0,Y:0,Z:0,A:0,CLAW:30,d:1.6}]},
+  {name:'pickplace',label:'Pick & Place',ic:'P',loops:false,color:'#C9A64D', kf:[
+     {X:0, Y:5,  Z:130, A:0,   CLAW:90, d:1.0}, // approach pickup zone
+     {X:0, Y:5,  Z:130, A:0,   CLAW:5,  d:.6},  // close on object
+     {X:0, Y:35, Z:80,  A:0,   CLAW:5,  d:.9},  // lift
+     {X:60,Y:50, Z:40,  A:0,   CLAW:5,  d:1.2}, // travel
+     {X:60,Y:5,  Z:120, A:0,   CLAW:5,  d:.9},  // approach drop
+     {X:60,Y:5,  Z:120, A:0,   CLAW:90, d:.5},  // release
+     {X:0, Y:0,  Z:0,   A:0,   CLAW:30, d:1.2}  // back to home
+  ]},
+  {name:'inspect',label:'Inspect',     ic:'⊡', loops:true,  color:'#6DA8FF', kf:[
+     {X:-50,Y:35,Z:60, A:0,   CLAW:40, d:1.3},
+     {X: 50,Y:35,Z:60, A:0,   CLAW:40, d:1.3},
+     {X: 50,Y:65,Z:60, A:0,   CLAW:40, d:1.3},
+     {X:-50,Y:65,Z:60, A:0,   CLAW:40, d:1.3}
+  ]},
+  {name:'bow',   label:'Bow',         ic:'⌒', loops:false, color:'#B9A7FF', kf:[
+     {X:0, Y:30, Z:60, A:0, CLAW:25, d:1.0},
+     {X:0, Y:80, Z:120,A:0, CLAW:25, d:1.0},
+     {X:0, Y:80, Z:120,A:0, CLAW:25, d:.7},
+     {X:0, Y:30, Z:60, A:0, CLAW:25, d:1.0},
+     {X:0, Y:0,  Z:0,  A:0, CLAW:20, d:1.0}
+  ]},
+  {name:'showcase',label:'Showcase',   ic:'★', loops:false, color:'#FFD60A', kf:[
+     {X:  0, Y: 0,  Z:   0, A:   0, CLAW: 20, d:.6},
+     {X: 90, Y: 0,  Z:   0, A:   0, CLAW: 20, d:1.4}, // base sweep right
+     {X:-90, Y: 0,  Z:   0, A:   0, CLAW: 20, d:2.4}, // sweep across
+     {X:  0, Y: 0,  Z:   0, A:   0, CLAW: 20, d:1.2}, // back to centre
+     {X:  0, Y: 90, Z:   0, A:   0, CLAW: 20, d:1.6}, // shoulder full down
+     {X:  0, Y:-90, Z:   0, A:   0, CLAW: 20, d:2.0}, // shoulder full up
+     {X:  0, Y: 0,  Z:   0, A:   0, CLAW: 20, d:1.0},
+     {X:  0, Y: 0,  Z: 140, A:   0, CLAW: 20, d:1.4}, // elbow extreme +
+     {X:  0, Y: 0,  Z:-140, A:   0, CLAW: 20, d:2.4}, // elbow extreme −
+     {X:  0, Y: 0,  Z:   0, A:   0, CLAW: 20, d:1.0},
+     {X:  0, Y: 0,  Z:   0, A: 720, CLAW:100, d:1.6}, // wrist + claw demo
+     {X:  0, Y: 0,  Z:   0, A:-720, CLAW:  0, d:2.4},
+     {X:  0, Y: 0,  Z:   0, A:   0, CLAW: 20, d:1.0}
+  ]},
+  {name:'sleep', label:'Sleep',       ic:'z', loops:false, color:'#7FA0C0', kf:[
+     {X:0, Y:0,   Z:0,  A:0, CLAW:20, d:.8},
+     {X:0, Y:75,  Z:130,A:0, CLAW:5,  d:1.4}, // tuck arm down and forward
+     {X:0, Y:75,  Z:130,A:0, CLAW:5,  d:6.0}  // hold restful pose
+  ]},
+  // ── EXPO DEMO — long choreographed showcase routine ──
+  // 11 "acts" — slow flowing motion, hold-and-survey beats, parallel-line
+  // drawing pass, and a grand finale. Total runtime ~3 minutes 15 seconds.
+  {name:'expo', label:'EXPO Demo', ic:'⊛', loops:false, color:'#FFD60A', kf:[
+     // ── PROLOGUE — awakening ──
+     {X:  0, Y:  0, Z:   0, A:   0, CLAW: 25, d: .8},
+     {X:  0, Y:  0, Z:   0, A:   0, CLAW: 25, d:1.4},   // breathe
+     {X:  0, Y:-15, Z:   0, A:   0, CLAW: 25, d:2.2},   // small stretch up
+     {X:  0, Y:  0, Z:  30, A:   0, CLAW: 30, d:2.0},   // ready stance
+
+     // ── ACT I — establishing the room (very slow base sweep) ──
+     {X: 60, Y: 15, Z:  30, A:  90, CLAW: 30, d:3.6},
+     {X: 60, Y: 15, Z:  30, A:  90, CLAW: 30, d:1.0},   // survey
+     {X:120, Y: 25, Z:  30, A: 180, CLAW: 30, d:3.4},
+     {X:120, Y: 25, Z:  30, A: 180, CLAW: 30, d: .8},
+     {X:180, Y: 30, Z:  30, A: 360, CLAW: 30, d:3.4},   // all the way around
+     {X:180, Y: 30, Z:  30, A: 360, CLAW: 30, d: .8},
+     {X:-120,Y: 30, Z:  30, A: 540, CLAW: 30, d:6.6},   // long reverse arc
+     {X:-180,Y: 25, Z:  30, A: 720, CLAW: 30, d:2.8},
+     {X:  0, Y: 20, Z:  30, A:   0, CLAW: 30, d:4.2},   // back to centre
+
+     // ── ACT II — vertical showcase ──
+     {X:  0, Y: 20, Z:  30, A:   0, CLAW: 30, d:1.0},
+     {X:  0, Y:-80, Z:   0, A:   0, CLAW: 30, d:3.4},   // reach for sky
+     {X:  0, Y:-80, Z:   0, A:   0, CLAW: 30, d:1.6},   // hold tall
+     {X:  0, Y:-40, Z:  60, A:   0, CLAW: 30, d:3.0},
+     {X:  0, Y: 80, Z:  60, A:   0, CLAW: 50, d:4.6},   // sweep down to low reach
+     {X:  0, Y: 80, Z:  60, A:   0, CLAW: 50, d:1.2},   // survey low
+
+     // ── ACT III — formal bow ──
+     {X:  0, Y: 60, Z: 120, A:   0, CLAW: 50, d:2.6},   // forward bow
+     {X:  0, Y: 60, Z: 120, A:   0, CLAW: 50, d:1.8},   // hold the bow
+     {X:  0, Y: 30, Z:  60, A:   0, CLAW: 50, d:2.6},   // rise
+
+     // ── ACT IV — elbow extremes (uses full ±140°) ──
+     {X:  0, Y: 30, Z: 140, A: 180, CLAW: 50, d:3.4},   // tuck completely
+     {X:  0, Y: 30, Z: 140, A: 180, CLAW: 50, d:1.0},
+     {X:  0, Y: 30, Z:-100, A: 360, CLAW: 50, d:5.4},   // smooth unfold to other extreme
+     {X:  0, Y: 30, Z:-100, A: 360, CLAW: 50, d:1.0},
+     {X:  0, Y: 30, Z:  30, A: 360, CLAW: 50, d:3.2},
+
+     // ══════════════════════════════════════════════════════════════════════
+     // ── ACT V — DRAWING PARALLEL LINES (NEW) ──
+     // 5 long horizontal sweeps stacked vertically.  Slow & mesmerising.
+     // ══════════════════════════════════════════════════════════════════════
+     {X:-90, Y:  8, Z:  50, A:   0, CLAW: 30, d:4.2},   // arrive at top-left start
+     {X:-90, Y:  8, Z:  50, A:   0, CLAW: 30, d: .8},   // pause to "draw"
+     {X: 90, Y:  8, Z:  50, A:   0, CLAW: 30, d:7.5},   // line 1 — sweep right
+     {X: 90, Y: 18, Z:  55, A:   0, CLAW: 30, d:1.0},   // step down (carriage return)
+     {X:-90, Y: 18, Z:  55, A:   0, CLAW: 30, d:7.5},   // line 2 — sweep left
+     {X:-90, Y: 28, Z:  60, A:   0, CLAW: 30, d:1.0},   // step down
+     {X: 90, Y: 28, Z:  60, A:   0, CLAW: 30, d:7.5},   // line 3 — sweep right
+     {X: 90, Y: 38, Z:  65, A:   0, CLAW: 30, d:1.0},   // step down
+     {X:-90, Y: 38, Z:  65, A:   0, CLAW: 30, d:7.5},   // line 4 — sweep left
+     {X:-90, Y: 48, Z:  70, A:   0, CLAW: 30, d:1.0},   // step down
+     {X: 90, Y: 48, Z:  70, A:   0, CLAW: 30, d:7.5},   // line 5 — sweep right
+     {X: 90, Y: 48, Z:  70, A:   0, CLAW: 30, d:1.0},   // hold final position
+
+     // ── ACT VI — gripper performance ──
+     {X:  0, Y: 40, Z:  60, A: 360, CLAW: 50, d:3.0},
+     {X:  0, Y: 40, Z:  60, A: 360, CLAW:  0, d:1.4},   // snap closed
+     {X:  0, Y: 40, Z:  60, A: 360, CLAW:  0, d:1.2},   // hold
+     {X:  0, Y: 40, Z:  60, A: 360, CLAW:100, d:1.4},   // open wide
+     {X:  0, Y: 40, Z:  60, A: 360, CLAW:100, d:1.0},   // hold
+     {X:  0, Y: 40, Z:  60, A: 360, CLAW: 30, d:1.2},
+
+     // ══════════════════════════════════════════════════════════════════════
+     // ── ACT VII — TRACKING ARC (NEW) ──
+     // Smooth low arc across the front of the workspace, like a searchlight
+     // that's also slowly twisting its lamp.  Wrist gradually rotates.
+     // ══════════════════════════════════════════════════════════════════════
+     {X: 90, Y: 30, Z:  40, A:  90, CLAW: 30, d:4.0},
+     {X: 45, Y: 15, Z:  20, A: 180, CLAW: 30, d:4.2},
+     {X:  0, Y:  0, Z:  10, A: 270, CLAW: 30, d:4.2},   // peak high centre
+     {X:-45, Y: 15, Z:  20, A: 360, CLAW: 30, d:4.2},
+     {X:-90, Y: 30, Z:  40, A: 450, CLAW: 30, d:4.2},
+     {X:  0, Y: 25, Z:  40, A: 360, CLAW: 30, d:4.0},
+
+     // ── ACT VIII — spiral combo (every joint flowing together) ──
+     {X: 60, Y: 20, Z:  30, A: 540, CLAW: 30, d:3.4},
+     {X:120, Y: 40, Z:  60, A: 720, CLAW: 30, d:3.4},
+     {X:180, Y: 30, Z:  30, A: 360, CLAW: 30, d:3.4},
+     {X:-120,Y: 10, Z:   0, A:   0, CLAW: 30, d:4.6},
+     {X: -60,Y: 35, Z:  60, A:-360, CLAW: 30, d:3.4},
+     {X:  0, Y: 45, Z:  90, A:   0, CLAW: 30, d:3.4},
+
+     // ── ACT IX — wrist signature spin ──
+     {X:  0, Y: 30, Z:  60, A:   0, CLAW: 30, d:1.8},
+     {X: 30, Y: 35, Z:  50, A: 720, CLAW: 50, d:4.6},   // slow forward double-rotation
+     {X:-30, Y: 35, Z:  50, A:-720, CLAW: 50, d:5.2},   // and back
+     {X:  0, Y: 30, Z:  60, A:   0, CLAW: 30, d:2.6},
+
+     // ── ACT X — GRAND FINALE ──
+     {X:  0, Y: 70, Z: 120, A:   0, CLAW: 80, d:2.6},   // wind up — coil low and forward
+     {X:  0, Y: 70, Z: 120, A:   0, CLAW: 80, d:1.0},   // suspense pause
+     {X:  0, Y:-60, Z: -40, A: 360, CLAW:  0, d:2.8},   // EXPLOSION upward, full extension
+     {X:  0, Y:-60, Z: -40, A: 360, CLAW:  0, d:2.2},   // hold the hero pose
+     {X:  0, Y:-60, Z: -40, A: 360, CLAW:100, d:2.6},   // open gripper like a flower
+     {X:  0, Y:-60, Z: -40, A: 360, CLAW:100, d:2.0},   // savour the moment
+
+     // ── EPILOGUE — return home ──
+     {X:  0, Y: 30, Z:  30, A:   0, CLAW: 30, d:3.4},
+     {X:  0, Y:  0, Z:   0, A:   0, CLAW: 25, d:2.6}
+  ]},
+];
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+var J = {X:0, Y:0, Z:0, A:0, CLAW:20};
+var lastSentSteps = {X:0, Y:0, Z:0, A:0}; // integer steps sent — never loses sub-step remainder
+var sliderDragging = false;
+
+// ── SAFETY SYSTEM ─────────────────────────────────────────────────────────────
+// Caps motion to prevent the strong NEMA 23 / planetary-geared joints from
+// breaking things. All axis movement passes through these limits.
+var SAFETY = {
+  MAX_STEPS_PER_CMD: 80,        // Hard cap on steps per single MOVE command
+  CONFIRM_DEG: 35,              // Confirm any preset/jump bigger than this
+  PROFILES: {
+    SAFE:   {speed: 60,  accel: 30,  label:'SAFE',   color:'#4FD18B'},
+    NORMAL: {speed: 140, accel: 80,  label:'NORMAL', color:'#C9A64D'},
+    FAST:   {speed: 240, accel: 160, label:'FAST',   color:'#FF8C42'}
+  }
+};
+var safetyProfile = 'SAFE';      // start safe by default
+var motionInProgress = {X:false, Y:false, Z:false, A:false};
+var connected=false, driversEnabled=false, estopActive=false, simMode=true;
+var serialPort=null, serialWriter=null, serialBuffer='';
+var runAct=null, actInterval=null;
+var motState={running:false,activity:null,segIdx:0,segStart:0,startPose:{X:0,Y:0,Z:0,A:0,CLAW:20},speed:1.0};
+var updateArmFn=null;
+var testActive=false, testInterval=null;
+var autoOrbitActive=false;
+
+// Camera state
+var camMode=false, camStream=null, camFacing='environment';
+var camCalibrated=false, calibCorners=[], pxPerInch=0;
+var calibrating=false;
+var mpHands=null, mpLoaded=false;
+var handDetected=false;
+var handSmooth={X:0,Y:0,Z:0,A:0,CLAW:20};
+var SMOOTH_ALPHA=0.12;
+var MAX_VEL=4.0;
+var lastHandSize=0.18; // updated every frame from processHand
+var fingerMode=false;
+var fingerLastHwSend=0;
+var FINGER_RATE=2.0; // degrees (or % for claw) per frame at ~30fps
+var camLowSize=null, camLowY=60;    // hand far → arm low
+var camHighSize=null, camHighY=250; // hand close → arm high
+
+// ── HEIGHT LOCK STATE ─────────────────────────────────────────────────────────
+var heightLockActive = false;
+var heightLockTarget = null;   // world-Y of end effector to maintain
+var heightLockSolving = false; // re-entrancy guard
+
+// ── FK ─────────────────────────────────────────────────────────────────────────
+// Arm extends along +Y in Three.js. Shoulder/elbow rotate around local X axis.
+// Shoulder 0°=up. Positive angle tilts arm toward -Z (away from default camera).
+// Base rotation around Y: positive rotates arm to the right.
+function computeFK(j) {
+  var ba = j.X * Math.PI/180;  // base around Y
+  var sa = j.Y * Math.PI/180;  // shoulder (from vertical)
+  var ea = j.Z * Math.PI/180;  // elbow (from upper arm direction)
+  var cl = (j.CLAW||20)/100;
+
+  // With rotation.x = -sa in Three.js:
+  // local +Y direction in world = (0, cos(sa), -sin(sa)) [in rotGroup space]
+  // After base rotation around Y by -ba [rotGroup.rotation.y = -ba]:
+  // world X = local X * cos(ba) + local Z * sin(ba) -- simplified, since local X = 0:
+  // Actually: arm direction world = R_y(-ba) * (0, cos(sa), -sin(sa))
+  // R_y(-ba): x' = x*cos(ba) + z*sin(ba), y' = y, z' = -x*sin(ba) + z*cos(ba)
+  // = ((-sin(sa))*sin(ba)*(-1)... let me compute directly:
+  // local = (0, cos(sa), -sin(sa))
+  // world x = 0*cos(ba) + (-sin(sa))*sin(ba) = -sin(sa)*sin(ba)... wait
+
+  // R_y(θ) applied to vector v:
+  // x' = v.x*cos(θ) + v.z*sin(θ)
+  // y' = v.y
+  // z' = -v.x*sin(θ) + v.z*cos(θ)
+  // With θ = -ba: cos(-ba)=cos(ba), sin(-ba)=-sin(ba)
+  // x' = v.x*cos(ba) - v.z*sin(ba)
+  // z' = v.x*sin(ba) + v.z*cos(ba)
+  // For v = (0, cos(sa), -sin(sa)):
+  // x' = 0 - (-sin(sa))*sin(ba) = sin(sa)*sin(ba)
+  // y' = cos(sa)
+  // z' = 0 + (-sin(sa))*cos(ba) = -sin(sa)*cos(ba)
+  // Visual updateArmFn applies rotation.x = +sa  → local +Y → (0, cos(sa), +sin(sa))
+  //                    and rotation.y = -ba on the parent rotGroup.
+  // Combined: world arm dir = (-sin(sa)*sin(ba), cos(sa), +sin(sa)*cos(ba)).
+  var armDir  = {x: -Math.sin(sa)*Math.sin(ba), y: Math.cos(sa), z:  Math.sin(sa)*Math.cos(ba)};
+  var la = sa + ea;
+  var foreDir = {x: -Math.sin(la)*Math.sin(ba), y: Math.cos(la), z:  Math.sin(la)*Math.cos(ba)};
+
+  var shoulderPivot = {x:0, y:L0+COL_H, z:0};
+  var elbow = {x: shoulderPivot.x+L1*armDir.x, y: shoulderPivot.y+L1*armDir.y, z: shoulderPivot.z+L1*armDir.z};
+  var wrist = {x: elbow.x+L2*foreDir.x, y: elbow.y+L2*foreDir.y, z: elbow.z+L2*foreDir.z};
+  var ee    = {x: wrist.x+L3*foreDir.x, y: wrist.y+L3*foreDir.y, z: wrist.z+L3*foreDir.z};
+
+  return {shoulderPivot:shoulderPivot, elbow:elbow, wrist:wrist, ee:ee};
+}
+
+// ── INVERSE KINEMATICS ────────────────────────────────────────────────────────
+// Given target (tx,ty,tz) in world mm, returns {base,shoulder,elbow} in degrees.
+// Robot faces -Z at base=0. Shoulder 0°=up. Elbow 0°=straight.
+// fallbackBaseDeg: used instead of atan2 when hand is near the arm axis
+function solveIK(tx, ty, tz, fallbackBaseDeg) {
+  var PIVOT_Y = L0 + COL_H;
+  var L23 = L2 + L3;
+
+  var R  = Math.sqrt(tx*tx + tz*tz);
+  var Ht = ty - PIVOT_Y;
+
+  // Near the vertical axis atan2 is ill-conditioned — use the fallback base angle
+  // and project R along that direction so shoulder/elbow stay stable.
+  var SINGULAR_R = 25; // mm
+  var baseDeg;
+  if (R < SINGULAR_R && fallbackBaseDeg !== undefined) {
+    baseDeg = fallbackBaseDeg;
+    // Blend R toward the singularity smoothly so there's no pop at the threshold
+    var blend = R / SINGULAR_R;
+    R = R * blend + SINGULAR_R * (1 - blend) * 0.4;
+  } else {
+    // Inverse of armDir.x=-sin(sa)sin(ba), armDir.z=+sin(sa)cos(ba) → ba = atan2(-tx, tz)
+    baseDeg = clamp(Math.atan2(-tx, tz) * 180 / Math.PI, -180, 180);
+  }
+
+  // Clamp to reachable sphere
+  var d = Math.sqrt(R*R + Ht*Ht);
+  var maxD = (L1 + L23) * 0.97;
+  if (d > maxD) { var f = maxD/d; R *= f; Ht *= f; d = maxD; }
+  if (d < 1) d = 1;
+
+  // Elbow via law of cosines
+  var cosEa = clamp((d*d - L1*L1 - L23*L23) / (2*L1*L23), -1, 1);
+  var ea = Math.acos(cosEa);
+
+  // Shoulder
+  var alpha = Math.atan2(R, Ht);
+  var beta  = Math.atan2(L23 * Math.sin(ea), L1 + L23 * Math.cos(ea));
+  var sa = alpha - beta;
+
+  return {
+    base:     baseDeg,
+    shoulder: clamp(sa * 180/Math.PI, -90, 90),
+    elbow:    clamp(ea * 180/Math.PI, -140, 140)
+  };
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function jd(k){return JOINTS.find(function(j){return j.key===k;});}
+function clamp(v,mn,mx){return Math.max(mn,Math.min(mx,v));}
+function lp(a,b,t){return a+(b-a)*t;}
+function toSteps(key,deg){var d=jd(key),s=Math.round(deg/360*d.spr*d.ms*d.gr);return d.inv?-s:s;}
+
+// ── HARDWARE SEND HELPERS ─────────────────────────────────────────────────────
+// Tracks position in integer steps so rounding never loses progress.
+// sendJointHW sends exactly the delta between current simulation and last sent.
+// The 100ms sync interval in init() ensures the arm always reaches its target.
+function jointTargetSteps(key){var d=jd(key);if(!d.fwAxis)return 0;var s=Math.round(J[key]/360*d.spr*d.ms*d.gr);return d.inv?-s:s;}
+function sendJointHW(key){
+  var d=jd(key);if(!d.fwAxis||!connected||!driversEnabled||estopActive)return;
+  var fullDelta=jointTargetSteps(key)-lastSentSteps[key];
+  if(fullDelta===0){
+    if(motionInProgress[key]){motionInProgress[key]=false;updateMotionUI();}
+    return;
+  }
+  // Cap to MAX_STEPS_PER_CMD — large moves get chunked safely across sync ticks
+  var capped=Math.max(-SAFETY.MAX_STEPS_PER_CMD,Math.min(SAFETY.MAX_STEPS_PER_CMD,fullDelta));
+  lastSentSteps[key]+=capped;
+  if(!motionInProgress[key]){motionInProgress[key]=true;updateMotionUI();}
+  sendCmd('MOVE '+d.fwAxis+' '+capped);
+}
+function sendAllJointsHW(){JOINTS.forEach(function(d){sendJointHW(d.key);});}
+
+// ── SAFETY HELPERS ────────────────────────────────────────────────────────────
+function applySafetyProfile(profile){
+  if(!SAFETY.PROFILES[profile])return;
+  safetyProfile=profile;
+  var p=SAFETY.PROFILES[profile];
+  // Push to firmware immediately if connected
+  if(connected){
+    ['X','Y','Z','A'].forEach(function(ax){
+      sendCmd('SET SPEED '+ax+' '+p.speed);
+      sendCmd('SET ACCEL '+ax+' '+p.accel);
+    });
+    addLog('SAFETY = '+p.label+'  (speed '+p.speed+', accel '+p.accel+')','i');
+  }
+  updateSafetyUI();
+}
+function updateSafetyUI(){
+  var p=SAFETY.PROFILES[safetyProfile];
+  var chip=document.getElementById('safety-chip');
+  if(chip){chip.textContent='◆ '+p.label;chip.style.color=p.color;chip.style.borderColor=p.color+'40';}
+  document.querySelectorAll('[data-safety]').forEach(function(b){
+    b.classList.toggle('on',b.dataset.safety===safetyProfile);
+  });
+  var spdInp=document.getElementById('inp-spd'),accInp=document.getElementById('inp-acc');
+  if(spdInp)spdInp.value=p.speed; if(accInp)accInp.value=p.accel;
+}
+function updateMotionUI(){
+  var anyMoving=motionInProgress.X||motionInProgress.Y||motionInProgress.Z||motionInProgress.A;
+  var ind=document.getElementById('motion-banner');
+  if(ind)ind.style.display=anyMoving?'flex':'none';
+  ['X','Y','Z','A'].forEach(function(k){
+    var dot=document.getElementById('mot-dot-'+k);
+    if(dot)dot.style.opacity=motionInProgress[k]?'1':'0.15';
+  });
+}
+
+// Confirmation modal — returns a promise
+var confirmCallback=null;
+function confirmAction(title,body,danger,cb){
+  var modal=document.getElementById('confirm-modal');
+  document.getElementById('confirm-title').textContent=title;
+  document.getElementById('confirm-body').innerHTML=body;
+  var okBtn=document.getElementById('confirm-ok');
+  okBtn.className='btn '+(danger?'btn-red':'btn-gold');
+  okBtn.textContent=danger?'PROCEED ANYWAY':'CONFIRM';
+  modal.classList.add('open');
+  confirmCallback=cb;
+}
+function resolveConfirm(ok){
+  document.getElementById('confirm-modal').classList.remove('open');
+  if(confirmCallback){var cb=confirmCallback;confirmCallback=null;if(ok)cb();}
+}
+
+// Toast notifications — non-blocking transient messages
+function toast(msg,type,ms){
+  var c=document.getElementById('toast-container'); if(!c)return;
+  var t=document.createElement('div'); t.className='toast '+(type||'info');
+  t.innerHTML='<span class="toast-bar"></span><span class="toast-msg">'+msg+'</span>';
+  c.appendChild(t);
+  requestAnimationFrame(function(){t.classList.add('show');});
+  setTimeout(function(){t.classList.remove('show');setTimeout(function(){t.remove();},300);},ms||3200);
+}
+
+// Magnitude of a pose change — used to decide whether to confirm
+function poseDistance(targetPose){
+  var max=0;
+  Object.keys(targetPose).forEach(function(k){
+    if(k==='CLAW')return;
+    var d=Math.abs(targetPose[k]-(J[k]||0));
+    if(d>max)max=d;
+  });
+  return max;
+}
+
+// ── SERIAL ────────────────────────────────────────────────────────────────────
+function toggleConnect(){
+  if(connected){doDisconnect();return;}
+  if(simMode){connectSim();return;}
+  if(!('serial' in navigator)){
+    addLog('WebSerial unavailable. Switched to Simulation mode.','e');
+    simMode=true; document.getElementById('sel-mode').value='sim'; connectSim(); return;
+  }
+  var baud=parseInt(document.getElementById('sel-baud').value);
+  navigator.serial.requestPort().then(function(p){
+    serialPort=p; return p.open({baudRate:baud});
+  }).then(function(){
+    var enc=new TextEncoderStream(); enc.readable.pipeTo(serialPort.writable); serialWriter=enc.writable.getWriter();
+    var dec=new TextDecoderStream(); serialPort.readable.pipeTo(dec.writable);
+    var reader=dec.readable.getReader();
+    connected=true; driversEnabled=false; updateConnUI();
+    addLog('Connected at '+baud+' baud.','i');
+    function loop(){reader.read().then(function(r){
+      if(r.done){connected=false;driversEnabled=false;updateConnUI();addLog('Port closed.','e');return;}
+      if(r.value){serialBuffer+=r.value;var ls=serialBuffer.split('\n');serialBuffer=ls.pop();ls.forEach(function(l){var t=l.trim();if(t)handleLine(t);});}
+      loop();
+    }).catch(function(){connected=false;driversEnabled=false;updateConnUI();addLog('Port error.','e');});}
+    loop(); sendCmd('ID'); setTimeout(function(){sendCmd('STATUS');},400);
+    setTimeout(function(){applySafetyProfile(safetyProfile);},800);
+    toast('Hardware connected at '+baud+' baud','ok');
+  }).catch(function(e){if(e.name!=='NotFoundError')addLog('Connect failed: '+e.message,'e');});
+}
+function connectSim(){
+  connected=true; driversEnabled=false; updateConnUI();
+  addLog('[SIM] Ready.','i');
+  setTimeout(function(){handleLine('DEVICE TYPE STEPPER_CONTROLLER NAME UNO_CNC_SHIELD_XYZA_DM556_CONTROLLER VERSION 5.1.3');},150);
+  setTimeout(function(){handleLine('HELLO BOARD UNO_CNC_SHIELD_XYZA_DM556_CONTROLLER VERSION 5.1.3 BAUD 115200 DRIVERS DISABLED');},350);
+  setTimeout(function(){applySafetyProfile(safetyProfile);},500);
+  toast('Simulator connected','ok');
+}
+function doDisconnect(){
+  stopAct(); stopTest(); stopCameraControl();
+  if(serialWriter){try{serialWriter.close();}catch(e){}serialWriter=null;}
+  if(serialPort){try{serialPort.close();}catch(e){}serialPort=null;}
+  connected=false; driversEnabled=false; updateConnUI(); addLog('Disconnected.','i');
+}
+function sendCmd(cmd){
+  addLog('> '+cmd,'s');
+  // Local STOP ALL: also resync lastSentSteps so the sync loop doesn't immediately
+  // re-send the buffered moves that the firmware just discarded.
+  if(/^STOP/i.test(cmd.trim())){
+    JOINTS.forEach(function(d){if(d.fwAxis)lastSentSteps[d.key]=jointTargetSteps(d.key);});
+    motionInProgress={X:false,Y:false,Z:false,A:false};updateMotionUI();
+  }
+  if(!connected){addLog('Not connected.','e');return;}
+  if(simMode||!serialWriter){simResp(cmd);return;}
+  serialWriter.write(cmd+'\r\n').catch(function(e){addLog('Write error: '+e.message,'e');toast('Serial write error','err');});
+}
+function simResp(cmd){
+  var p=cmd.trim().split(/\s+/);
+  setTimeout(function(){
+    if(p[0]==='ID')handleLine('DEVICE TYPE STEPPER_CONTROLLER NAME UNO_CNC_SHIELD_XYZA_DM556_CONTROLLER VERSION 5.1.3');
+    else if(p[0]==='STATUS')handleLine('STATE DRIVERS '+(driversEnabled?'ENABLED':'DISABLED'));
+    else if(p[0]==='ENABLE'){driversEnabled=true;handleLine('OK DRIVERS_ENABLED');updateConnUI();}
+    else if(p[0]==='DISABLE'){driversEnabled=false;handleLine('OK DRIVERS_DISABLED');updateConnUI();}
+    else if(p[0]==='STOP')handleLine('OK STOPPED');
+    else if(p[0]==='MOVE')setTimeout(function(){handleLine('OK MOVE_DONE '+(p[1]||'X'));},200);
+    else handleLine('OK');
+  },80);
+}
+function handleLine(line){
+  addLog('< '+line,'r');
+  var p=line.trim().split(/\s+/);
+  if(p[0]==='DEVICE'||p[0]==='HELLO'){
+    var vi=p.indexOf('VERSION'),ni=p.indexOf('NAME'),bi=p.indexOf('BOARD');
+    var ver=vi>=0?p[vi+1]:'',nm=ni>=0?p[ni+1]:(bi>=0?p[bi+1]:'');
+    var fwc=document.getElementById('fw-chip'); if(fwc){fwc.style.display='inline-flex';document.getElementById('fw-lbl').textContent=nm.replace(/_/g,' ')+(ver?' v'+ver:'');}
+  }
+  if(line.indexOf('DRIVERS_ENABLED')>=0){driversEnabled=true;updateConnUI();}
+  if(line.indexOf('DRIVERS_DISABLED')>=0){driversEnabled=false;updateConnUI();}
+  if(p[0]==='STATE'&&p[1]==='DRIVERS'){driversEnabled=p[2]==='ENABLED';updateConnUI();}
+}
+
+// ── JOINTS ────────────────────────────────────────────────────────────────────
+function setJoint(key,rawVal){
+  var d=jd(key), val=clamp(parseFloat(rawVal)||0,d.min,d.max);
+  J[key]=val;
+  var pct=(val-d.min)/(d.max-d.min)*100;
+  var sl=document.getElementById('jsl-'+key); if(sl){sl.value=val;sl.style.background='linear-gradient(to right,'+d.color+' '+pct+'%,rgba(232,221,208,.08) '+pct+'%)';}
+  var jv=document.getElementById('jv-'+key); if(jv)jv.textContent=val.toFixed(1)+d.unit;
+  var rv=document.getElementById('jro-val-'+key); if(rv){rv.textContent=val.toFixed(1)+d.unit;rv.style.color=d.color;}
+  var rf=document.getElementById('jro-fill-'+key); if(rf){rf.style.width=pct+'%';rf.style.background=d.color;}
+  updateEE();
+}
+function changeJoint(key,val){
+  if(estopActive)return;
+  if(runAct)stopAct();
+  if(testActive)stopTest();
+  setJoint(key,val);
+  // If height lock is active and a relevant joint changed, re-solve
+  if(heightLockActive && (key==='Y'||key==='X')) applyHeightLockIK(key);
+}
+function sliderReleased(key){
+  sliderDragging=false;
+  if(!connected||!driversEnabled||estopActive){sendJointHW(key);return;}
+  // Confirm if we're sending a big move
+  var d=jd(key);
+  if(!d.fwAxis){sendJointHW(key);return;}
+  var stepsAhead=jointTargetSteps(key)-lastSentSteps[key];
+  var degAhead=Math.abs(stepsAhead)/(d.spr*d.ms*d.gr/360);
+  if(degAhead>SAFETY.CONFIRM_DEG){
+    confirmAction('LARGE SLIDER MOVE',
+      'You released the <b>'+d.name+'</b> slider <b>'+degAhead.toFixed(0)+'°</b> from the current arm position.<br>The arm will travel that distance — clear the path.',
+      false,function(){sendJointHW(key);});
+  } else { sendJointHW(key); }
+}
+function jogAxis(key,dir){
+  if(estopActive)return;
+  var d=jd(key), step=parseFloat(document.getElementById('inp-jog').value)||5;
+  var nv=clamp(J[key]+dir*step,d.min,d.max); changeJoint(key,nv);
+  sendJointHW(key);
+}
+function applyPreset(name){
+  if(estopActive)return; var pose=PRESETS[name]; if(!pose)return;
+  var dist=poseDistance(pose);
+  var doIt=function(){
+    stopAct(); stopTest();
+    if(heightLockActive){heightLockActive=false;heightLockTarget=null;updateHeightLockUI();}
+    Object.keys(pose).forEach(function(k){setJoint(k,pose[k]);});
+    addLog('Preset: '+name,'i');
+    toast('Moving to '+name,'info');
+    if(connected&&driversEnabled) sendAllJointsHW();
+  };
+  if(dist>SAFETY.CONFIRM_DEG && connected && driversEnabled){
+    confirmAction('LARGE MOVE — '+name.toUpperCase(),
+      'This preset moves a joint by <b>'+dist.toFixed(0)+'°</b>.<br>The arm will travel a long distance — make sure the path is clear.',
+      false, doIt);
+  } else { doIt(); }
+}
+function zeroJoints(){
+  if(estopActive)return;stopAct();stopTest();
+  if(heightLockActive){heightLockActive=false;heightLockTarget=null;updateHeightLockUI();}
+  JOINTS.forEach(function(d){setJoint(d.key,0);if(d.fwAxis)lastSentSteps[d.key]=0;});
+  if(connected)sendCmd('STATUS');
+}
+function doEstop(){
+  stopAct();stopTest();stopCameraControl();stopFingerMode();
+  estopActive=true;driversEnabled=false;
+  // Snap lastSentSteps back to current J so when E-stop clears we don't re-fire queued moves
+  JOINTS.forEach(function(d){if(d.fwAxis)lastSentSteps[d.key]=jointTargetSteps(d.key);});
+  if(connected){sendCmd('STOP ALL');sendCmd('DISABLE ALL');}
+  motionInProgress={X:false,Y:false,Z:false,A:false};updateMotionUI();
+  updateConnUI();addLog('[EMERGENCY STOP]','e');toast('EMERGENCY STOP','err',4000);
+}
+function clearEstop(){
+  estopActive=false;updateConnUI();addLog('E-Stop cleared.','i');
+  toast('E-Stop cleared — drivers still OFF','warn',3000);
+  if(connected) applySafetyProfile(safetyProfile);
+}
+
+// ── TEST MOVEMENT (IK: fixed endpoint height) ─────────────────────────────────
+// EE_Y (relative to shoulder) = L1*cos(sa) + (L2+L3)*cos(sa+ea) = TARGET_H
+var IK_TARGET_H = 120; // target EE height above shoulder
+function testMoveElbow(sa_deg){
+  var sa=sa_deg*Math.PI/180, L23=L2+L3;
+  var ratio=(IK_TARGET_H-L1*Math.cos(sa))/L23;
+  ratio=clamp(ratio,-1,1);
+  var total=Math.acos(ratio);
+  var ea_rad=total-sa;
+  var ea_deg=ea_rad*180/Math.PI;
+  var clamped=clamp(ea_deg,-140,140);
+  return {deg:clamped, exceeded:Math.abs(clamped-ea_deg)>0.5};
+}
+// ── HEIGHT LOCK IK ────────────────────────────────────────────────────────────
+// Given current shoulder angle (deg), solve elbow angle (deg) to put EE at
+// world-Y = heightLockTarget.
+// EE_world_Y = shoulderPivot_Y + L1*cos(sa) + (L2+L3)*cos(sa+ea)
+// → (L2+L3)*cos(sa+ea) = target_Y - shoulderPivot_Y - L1*cos(sa)
+// → sa+ea = acos( ... )  → ea = acos(...) - sa
+var SHOULDER_PIVOT_Y = L0 + COL_H; // world Y of shoulder pivot (= 22+72 = 94)
+
+function ikSolveElbow(shoulderDeg, targetWorldY) {
+  var sa = shoulderDeg * Math.PI / 180;
+  var L23 = L2 + L3;
+  var H_rel = targetWorldY - SHOULDER_PIVOT_Y;   // height relative to pivot
+  var cosArg = (H_rel - L1 * Math.cos(sa)) / L23;
+  var clamped = false;
+  if (cosArg > 1)  { cosArg = 1;  clamped = true; }
+  if (cosArg < -1) { cosArg = -1; clamped = true; }
+  var sa_plus_ea = Math.acos(cosArg);
+  var ea_rad = sa_plus_ea - sa;
+  var ea_deg = ea_rad * 180 / Math.PI;
+  var ea_final = clamp(ea_deg, -140, 140);
+  if (Math.abs(ea_final - ea_deg) > 0.5) clamped = true;
+  return { deg: ea_final, clamped: clamped };
+}
+
+function setHeightLock() {
+  var fk = computeFK(J);
+  heightLockTarget = fk.ee.y;
+  if (!heightLockActive) {
+    heightLockActive = true;
+    updateHeightLockUI();
+  }
+  addLog('HEIGHT LOCK set · Target EE Y = ' + heightLockTarget.toFixed(1) + ' mm', 'i');
+  updateHeightLockHUD();
+}
+
+function toggleHeightLock() {
+  if (heightLockActive) {
+    heightLockActive = false;
+    heightLockTarget = null;
+    addLog('Height lock OFF', 'i');
+  } else {
+    setHeightLock();
+  }
+  updateHeightLockUI();
+  updateHeightLockHUD();
+}
+
+function updateHeightLockUI() {
+  var btn = document.getElementById('hl-toggle-btn');
+  var setBtn = document.getElementById('hl-set-btn');
+  var hud = document.getElementById('hl-hud');
+  if (!btn) return;
+  if (heightLockActive) {
+    btn.textContent = 'LOCK ON';
+    btn.className = 'btn btn-sm btn-gold';
+    if (setBtn) setBtn.style.opacity = '1';
+    if (hud) hud.style.display = 'flex';
+  } else {
+    btn.textContent = 'HEIGHT LOCK';
+    btn.className = 'btn btn-sm';
+    if (setBtn) setBtn.style.opacity = '0.4';
+    if (hud) hud.style.display = 'none';
+  }
+}
+
+function updateHeightLockHUD() {
+  var el = document.getElementById('hl-hud-val');
+  if (!el) return;
+  if (heightLockActive && heightLockTarget !== null) {
+    var fk = computeFK(J);
+    var err = Math.abs(fk.ee.y - heightLockTarget);
+    el.textContent = 'TARGET ' + heightLockTarget.toFixed(1) + ' mm  ·  ERR ' + err.toFixed(1);
+    el.style.color = err > 8 ? '#FFD60A' : '#30D158';
+  }
+}
+
+// Called whenever shoulder (Y) or elbow (Z) changes while lock is active.
+// We re-solve elbow to satisfy the height constraint.
+function applyHeightLockIK(changedKey) {
+  if (!heightLockActive || heightLockTarget === null || heightLockSolving) return;
+  // Only auto-correct when shoulder changes (base rotation doesn't affect height)
+  if (changedKey !== 'Y') return;
+  heightLockSolving = true;
+  var result = ikSolveElbow(J.Y, heightLockTarget);
+  setJoint('Z', result.deg);
+  // Send to firmware if connected
+  if (connected && driversEnabled) {
+    sendJointHW('Z');
+  }
+  updateHeightLockHUD();
+  var statusEl = document.getElementById('hl-ik-status');
+  if (statusEl) {
+    statusEl.textContent = result.clamped ? '⚠ ELBOW AT LIMIT' : '✓ LOCKED';
+    statusEl.style.color = result.clamped ? '#FFD60A' : '#30D158';
+  }
+  heightLockSolving = false;
+}
+
+function startTest(){
+  if(estopActive)return; stopAct(); stopCameraControl();
+  testActive=true; autoOrbitActive=false;
+  document.getElementById('test-readout').style.display='block';
+  document.getElementById('test-btn').textContent='STOP TEST';
+  addLog('▶ Test: Fixed-height IK · Shoulder ±90° · Elbow ±140°','i');
+  if(connected&&driversEnabled) addLog('Sending to hardware','i');
+  var t0=performance.now()/1000;
+  var lastHwSend=0;
+  testInterval=setInterval(function(){
+    if(!testActive)return;
+    var t=(performance.now()/1000-t0);
+    var cy=t/8.0; // 8 second cycle
+    var sh=50*Math.sin(cy*Math.PI*2)+10;
+    sh=clamp(sh,-90,90);
+    var ik=testMoveElbow(sh);
+    var ba=60*Math.sin(cy*Math.PI*2*0.4);
+    var wr=150*Math.sin(cy*Math.PI*2*1.3);
+    setJoint('X',ba); setJoint('Y',sh); setJoint('Z',ik.deg); setJoint('A',wr);
+    var actualH=L1*Math.cos(sh*Math.PI/180)+(L2+L3)*Math.cos((sh+ik.deg)*Math.PI/180);
+    document.getElementById('tr-sh').textContent='SHOULDER  '+sh.toFixed(1)+'°';
+    document.getElementById('tr-el').textContent='ELBOW  '+ik.deg.toFixed(1)+'°'+(ik.exceeded?' [LIMIT]':'');
+    document.getElementById('tr-h').textContent='EE HEIGHT  '+actualH.toFixed(1)+' mm';
+    var sts=document.getElementById('tr-ik-status');
+    sts.textContent=ik.exceeded?'⚠ LIMIT HIT — HEIGHT VARIES':'✓ IK SATISFIED — HEIGHT LOCKED';
+    sts.style.color=ik.exceeded?'#FFD60A':'#30D158';
+    // Send to hardware at ~10 Hz to avoid flooding the serial port
+    if(connected&&driversEnabled&&!estopActive){
+      var now=performance.now()/1000;
+      if(now-lastHwSend>=0.1){
+        lastHwSend=now;
+        sendAllJointsHW();
+      }
+    }
+  },16);
+}
+function stopTest(){
+  testActive=false; if(testInterval){clearInterval(testInterval);testInterval=null;}
+  document.getElementById('test-readout').style.display='none';
+  document.getElementById('test-btn').textContent='TEST MOVE';
+  
+}
+
+// ── ACTIVITIES ────────────────────────────────────────────────────────────────
+function ssf(t){return t*t*(3-2*t);}
+function startAct(name){
+  if(estopActive)return;
+  var a=ACTIVITIES.find(function(x){return x.name===name;}); if(!a)return;
+  stopAct(); stopTest(); stopCameraControl(); autoOrbitActive=false;
+  motState={running:true,activity:a,segIdx:0,segStart:performance.now()/1000,startPose:{X:J.X,Y:J.Y,Z:J.Z,A:J.A,CLAW:J.CLAW},speed:1.0};
+  runAct=name; updateActUI(); addLog('▶ '+a.label+(a.loops?' [LOOP]':''),'i');
+  actInterval=setInterval(function(){
+    var m=motState; if(!m.running||!m.activity)return;
+    var now=performance.now()/1000, kf=m.activity.kf[m.segIdx], el=now-m.segStart;
+    var t=ssf(clamp(el/kf.d,0,1));
+    var pose={X:lp(m.startPose.X,kf.X||0,t),Y:lp(m.startPose.Y,kf.Y||0,t),Z:lp(m.startPose.Z,kf.Z||0,t),A:lp(m.startPose.A,kf.A||0,t),CLAW:lp(m.startPose.CLAW,kf.CLAW||20,t)};
+    Object.keys(pose).forEach(function(k){setJoint(k,pose[k]);});
+    if(el>=kf.d){m.startPose={X:kf.X||0,Y:kf.Y||0,Z:kf.Z||0,A:kf.A||0,CLAW:kf.CLAW||20};m.segStart=now;m.segIdx++;
+      if(m.segIdx>=m.activity.kf.length){if(m.activity.loops){m.segIdx=0;}else{m.running=false;runAct=null;clearInterval(actInterval);updateActUI();addLog('Completed: '+m.activity.label,'i');}}}
+  },16);
+}
+function stopAct(){if(actInterval){clearInterval(actInterval);actInterval=null;}motState.running=false;runAct=null;updateActUI();}
+
+// ── CAMERA / MEDIAPIPE ────────────────────────────────────────────────────────
+var MP_HANDS_CDN='https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915';
+var MP_DRAW_CDN='https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1620248257/drawing_utils.js';
+function loadMPScript(url, onOk, onErr){
+  var s=document.createElement('script'); s.src=url;
+  s.onload=onOk;
+  s.onerror=function(){addLog('Failed to load: '+url,'e');if(onErr)onErr();};
+  document.head.appendChild(s);
+}
+function setModelStatus(msg,color,btnText,btnDisabled){
+  var s=document.getElementById('cam-model-status'); if(s){s.textContent=msg;s.style.color=color||'rgba(232,221,208,.3)';}
+  var b=document.getElementById('cam-dl-btn'); if(b){b.textContent=btnText||'DOWNLOAD MODEL';b.disabled=!!btnDisabled;}
+}
+function downloadModel(){
+  if(mpHands){setModelStatus('✓ READY','#30D158','MODEL READY',true);return;}
+  mpLoaded=false;
+  setModelStatus('1/2 LOADING SCRIPTS...','#C9A64D','LOADING...',true);
+  var timer=setTimeout(function(){
+    if(!mpHands){setModelStatus('TIMED OUT — RETRY','#FF5147','RETRY DOWNLOAD',false);addLog('Timed out loading MediaPipe. Check network.','e');}
+  },45000);
+  loadMPScript(MP_HANDS_CDN+'/hands.js', function(){
+    loadMPScript(MP_DRAW_CDN, function(){
+      if(!window.Hands){
+        clearTimeout(timer);
+        setModelStatus('FAILED — NEEDS HTTP SERVER','#FF5147','RETRY DOWNLOAD',false);
+        addLog('window.Hands not found — make sure you are on http://localhost:8888','e'); return;
+      }
+      setModelStatus('2/2 LOADING MODEL...','#C9A64D','LOADING...',true);
+      addLog('Scripts loaded, initialising hand model...','m');
+      var h=new Hands({locateFile:function(f){return MP_HANDS_CDN+'/'+f;}});
+      h.setOptions({maxNumHands:1,modelComplexity:1,minDetectionConfidence:0.5,minTrackingConfidence:0.5});
+      h.onResults(onHandResults);
+      h.initialize().then(function(){
+        clearTimeout(timer);
+        mpHands=h; mpLoaded=true;
+        setModelStatus('✓ READY','#30D158','MODEL READY',true);
+        addLog('Hand tracking ready.','i');
+        if(camStream){setCamStatus('CAMERA READY — CALIBRATE GRID THEN ENABLE CONTROL','#30D158');startFrameLoop();}
+      }).catch(function(e){
+        clearTimeout(timer);
+        setModelStatus('MODEL ERROR — RETRY','#FF5147','RETRY DOWNLOAD',false);
+        addLog('Hands init error: '+e.message,'e');
+      });
+    }, function(){clearTimeout(timer);setModelStatus('SCRIPT LOAD FAILED — RETRY','#FF5147','RETRY DOWNLOAD',false);});
+  }, function(){clearTimeout(timer);setModelStatus('SCRIPT LOAD FAILED — RETRY','#FF5147','RETRY DOWNLOAD',false);});
+}
+
+function startCamera(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    document.getElementById('cam-warn').style.display='block';
+    setCamStatus('CAMERA NOT AVAILABLE — NEEDS LOCALHOST/HTTPS','#FF3B30'); return;
+  }
+  var constraints={video:{facingMode:camFacing,width:{ideal:640},height:{ideal:480}}};
+  if(camStream){camStream.getTracks().forEach(function(t){t.stop();});}
+  navigator.mediaDevices.getUserMedia(constraints).then(function(stream){
+    camStream=stream;
+    var vid=document.getElementById('cam-video');
+    vid.srcObject=stream; vid.play();
+    document.getElementById('cam-calib-btn').disabled=false;
+    document.getElementById('cam-control-btn').disabled=false;
+    document.getElementById('cam-cal-low-btn').disabled=false;
+    document.getElementById('cam-cal-high-btn').disabled=false;
+    document.getElementById('cam-finger-btn').disabled=false;
+    document.getElementById('cam-start-btn').textContent='STOP CAMERA';
+    if(mpHands){
+      setCamStatus('CAMERA READY — CALIBRATE GRID THEN ENABLE CONTROL','#30D158');
+      startFrameLoop();
+    } else {
+      setCamStatus('CAMERA ACTIVE — CLICK DOWNLOAD MODEL TO ENABLE HAND TRACKING','#C9A64D');
+    }
+  }).catch(function(e){
+    document.getElementById('cam-warn').style.display='block';
+    setCamStatus('ERROR: '+e.message,'#FF3B30');
+    addLog('Camera error: '+e.message,'e');
+  });
+}
+function stopCamera(){
+  stopCameraControl();
+  if(camStream){camStream.getTracks().forEach(function(t){t.stop();});camStream=null;}
+  // Keep mpHands alive so the model doesn't need to be re-downloaded
+  var vid=document.getElementById('cam-video'); vid.srcObject=null;
+  document.getElementById('cam-calib-btn').disabled=true;
+  document.getElementById('cam-control-btn').disabled=true;
+  document.getElementById('cam-cal-low-btn').disabled=true;
+  document.getElementById('cam-cal-high-btn').disabled=true;
+  document.getElementById('cam-finger-btn').disabled=true;
+  stopFingerMode();
+  document.getElementById('cam-start-btn').textContent='START CAMERA';
+  setCamStatus('CAMERA OFFLINE','');
+  handDetected=false; updateHandUI(0,'—');
+}
+function startFrameLoop(){
+  var vid=document.getElementById('cam-video');
+  var sending=false;
+  function loop(){
+    if(!camStream||!mpHands)return;
+    requestAnimationFrame(loop);
+    if(vid.readyState<2)return;
+    if(!sending){
+      sending=true;
+      mpHands.send({image:vid}).then(function(){sending=false;}).catch(function(){sending=false;});
+    }
+  }
+  loop();
+}
+function onHandResults(results){
+  var oc=document.getElementById('cam-overlay');
+  var ctx=oc.getContext('2d');
+  var vid=document.getElementById('cam-video');
+  if(oc.width!==vid.videoWidth||oc.height!==vid.videoHeight){oc.width=vid.videoWidth;oc.height=vid.videoHeight;}
+  ctx.drawImage(vid,0,0);
+  calibCorners.forEach(function(c,i){
+    ctx.beginPath();ctx.arc(c.x*oc.width,c.y*oc.height,6,0,Math.PI*2);
+    ctx.fillStyle='#C9A64D';ctx.fill();
+    ctx.fillStyle='#fff';ctx.font='10px monospace';
+    ctx.fillText(['TL','TR','BL','BR'][i],(c.x*oc.width)+8,(c.y*oc.height)+4);
+  });
+  if(camCalibrated&&calibCorners.length===4){
+    ctx.strokeStyle='rgba(201,166,77,0.5)';ctx.lineWidth=1.5;
+    ctx.strokeRect(calibCorners[0].x*oc.width,calibCorners[0].y*oc.height,
+      (calibCorners[1].x-calibCorners[0].x)*oc.width,(calibCorners[2].y-calibCorners[0].y)*oc.height);
+  }
+  if(!results.multiHandLandmarks||results.multiHandLandmarks.length===0){
+    handDetected=false;updateHandUI(0,'—');return;
+  }
+  handDetected=true;
+  var lm=results.multiHandLandmarks[0];
+  if(typeof drawConnectors!=='undefined'&&typeof HAND_CONNECTIONS!=='undefined'){
+    drawConnectors(ctx,lm,HAND_CONNECTIONS,{color:'rgba(201,166,77,0.7)',lineWidth:1.5});
+    drawLandmarks(ctx,lm,{color:'#4FD18B',lineWidth:0.5,radius:3});
+  } else {
+    lm.forEach(function(pt){
+      ctx.beginPath();ctx.arc(pt.x*oc.width,pt.y*oc.height,3,0,Math.PI*2);
+      ctx.fillStyle='#4FD18B';ctx.fill();
+    });
+  }
+  updateHandUI(1,'DETECTED');
+  if(fingerMode&&!estopActive) processFingers(lm);
+  else if(camMode&&!estopActive) processHand(lm,oc.width,oc.height);
+}
+
+function processHand(lm,W,H){
+  var wristLm=lm[0], indexMCP=lm[5], pinkyMCP=lm[17], midMCP=lm[9];
+
+  // Finger tilt: average Z depth of all four finger MCPs relative to wrist.
+  // MediaPipe Z is wrist-relative — when fingers tilt toward the camera (palm facing up/camera),
+  // MCP z values go negative (closer to camera than wrist). We negate so "palm up" = positive.
+  var fingerTilt = -(lm[5].z + lm[9].z + lm[13].z + lm[17].z) / 4;
+  lastHandSize = fingerTilt; // calLow / calHigh capture lastHandSize
+
+  // ── World X/Z from image position relative to grid centre ──
+  var oc=document.getElementById('cam-overlay');
+  var cx=0.5, cy=0.5;
+  if(camCalibrated&&calibCorners.length===4){
+    cx=(calibCorners[0].x+calibCorners[1].x+calibCorners[2].x+calibCorners[3].x)/4;
+    cy=(calibCorners[0].y+calibCorners[1].y+calibCorners[2].y+calibCorners[3].y)/4;
+  }
+  var scaleMM=(camCalibrated&&pxPerInch>0)?(oc.width/pxPerInch*25.4):350;
+
+  var tx=(wristLm.x-cx)*scaleMM;
+  var tz=(wristLm.y-cy)*scaleMM;
+
+  // ── World Y from finger-tilt two-point calibration ──
+  var ty;
+  if(camLowSize!==null&&camHighSize!==null&&Math.abs(camHighSize-camLowSize)>0.001){
+    var t=clamp((fingerTilt-camLowSize)/(camHighSize-camLowSize),0,1);
+    ty=camLowY+(camHighY-camLowY)*t;
+  } else {
+    // fallback: centre of reachable height range
+    ty=(L0+COL_H)+L1*0.5;
+  }
+  ty=clamp(ty,20,L0+COL_H+L1+L2+L3-10);
+
+  // ── IK: pass current smoothed base as fallback to avoid singularity jump ──
+  var ik=solveIK(tx,ty,tz,handSmooth.X);
+
+  // ── Wrist roll from hand tilt ──
+  var wx=pinkyMCP.x-indexMCP.x, wy=pinkyMCP.y-indexMCP.y;
+  var targetWrist=clamp(Math.atan2(wy,wx)*180/Math.PI*4,-360,360);
+
+  // ── Claw from fist gesture ──
+  var targetClaw=isFist(lm)?85:10;
+
+  // ── EMA smoothing — wrap-aware for base so it never jumps 360° ──
+  var targets={X:ik.base,Y:ik.shoulder,Z:ik.elbow,A:targetWrist,CLAW:targetClaw};
+  ['X','Y','Z','A','CLAW'].forEach(function(k){
+    var prev=handSmooth[k], err=targets[k]-prev;
+    if(k==='X'){while(err>180)err-=360;while(err<-180)err+=360;}
+    handSmooth[k]=prev+SMOOTH_ALPHA*err;
+    setJoint(k,handSmooth[k]);
+  });
+}
+
+function calibrated_norm_x(rawX){
+  if(!camCalibrated||calibCorners.length<4)return rawX;
+  var x0=calibCorners[0].x, x1=calibCorners[1].x;
+  return clamp((rawX-x0)/(x1-x0),0,1);
+}
+function calibrated_norm_y(rawY){
+  if(!camCalibrated||calibCorners.length<4)return rawY;
+  var y0=calibCorners[0].y, y2=calibCorners[2].y;
+  return clamp((rawY-y0)/(y2-y0),0,1);
+}
+
+// ── FINGER MODE ───────────────────────────────────────────────────────────────
+// Each finger controls one joint independently:
+//   Index  → Base (X):     bent=+  thumb-touch=−
+//   Middle → Shoulder (Y): bent=+  thumb-touch=−
+//   Ring   → Elbow (Z):    bent=+  thumb-touch=−
+//   Pinky  → Wrist (A):    bent=+  thumb-touch=−  (faster rate)
+function fingerState(lm, tipIdx, mcpIdx){
+  var handSize=dist2D(lm[0],lm[9]);
+  var tip=lm[tipIdx], mcp=lm[mcpIdx], wrist=lm[0], thumb=lm[4];
+  if(dist2D(tip,thumb)<handSize*0.38) return 'THUMB';
+  if(dist2D(tip,wrist)<dist2D(mcp,wrist)*0.80) return 'BENT';
+  return 'NEUTRAL';
+}
+
+function processFingers(lm){
+  // [tipIdx, mcpIdx, jointKey, bentRate]
+  var defs=[
+    [8,  5,  'X', FINGER_RATE],
+    [12, 9,  'Y', FINGER_RATE],
+    [16, 13, 'Z', FINGER_RATE],
+    [20, 17, 'A', FINGER_RATE*10],
+  ];
+  var now=performance.now()/1000;
+  var doHW=connected&&driversEnabled&&!estopActive&&(now-fingerLastHwSend>=0.1);
+  if(doHW) fingerLastHwSend=now;
+
+  defs.forEach(function(def){
+    var tipIdx=def[0],mcpIdx=def[1],key=def[2],rate=def[3];
+    var d=jd(key);
+    var state=fingerState(lm,tipIdx,mcpIdx);
+    var delta=state==='BENT'?+rate:state==='THUMB'?-rate:0;
+    if(delta===0) return;
+    setJoint(key,clamp(J[key]+delta,d.min,d.max));
+    if(doHW) sendJointHW(key);
+  });
+
+  // Draw fingertip state indicators on overlay
+  var oc=document.getElementById('cam-overlay');
+  var ctx=oc.getContext('2d');
+  var stateColors={BENT:'#C9A64D',THUMB:'#6DA8FF',NEUTRAL:'rgba(255,255,255,0.15)'};
+  var labels={BENT:'BENT',THUMB:'THUMB',NEUTRAL:''};
+  defs.forEach(function(def){
+    var state=fingerState(lm,def[0],def[1]);
+    var pt=lm[def[0]];
+    ctx.beginPath();ctx.arc(pt.x*oc.width,pt.y*oc.height,8,0,Math.PI*2);
+    ctx.strokeStyle=stateColors[state];ctx.lineWidth=2.5;ctx.stroke();
+    if(state!=='NEUTRAL'){
+      ctx.fillStyle=stateColors[state];ctx.font='bold 9px monospace';
+      ctx.fillText(labels[state],(pt.x*oc.width)+11,(pt.y*oc.height)+4);
+    }
+  });
+}
+
+function toggleFingerMode(){
+  if(fingerMode){stopFingerMode();return;}
+  if(!camStream){addLog('Start camera first.','e');return;}
+  stopCameraControl(); // stop IK mode if running
+  fingerMode=true;
+  var btn=document.getElementById('cam-finger-btn');
+  if(btn){btn.textContent='STOP FINGER';btn.className='btn btn-sm btn-red';}
+  var chip=document.getElementById('cam-chip-hdr');
+  chip.textContent='◉ FINGER MODE';chip.style.color='#C9A64D';chip.style.display='inline-flex';
+  document.getElementById('cam-chip-left').style.display='block';
+  document.getElementById('cam-chip-left').textContent='◉ FINGER MODE ACTIVE';
+  addLog('Finger mode ON — Index=Base  Middle=Shoulder  Ring=Elbow  Pinky=Wrist','i');
+  addLog('Bend finger = + direction   Touch thumb = − direction','i');
+}
+
+function stopFingerMode(){
+  fingerMode=false;
+  var btn=document.getElementById('cam-finger-btn');
+  if(btn){btn.textContent='FINGER MODE';btn.className='btn btn-sm';}
+  var chip=document.getElementById('cam-chip-hdr');
+  if(!camMode){chip.style.display='none';}
+  else{chip.textContent='◉ CAMERA ACTIVE';chip.style.color='#4FD18B';}
+  document.getElementById('cam-chip-left').style.display='none';
+}
+
+function isFist(lm){
+  // Tips: 4,8,12,16,20; MCPs: 2,5,9,13,17
+  var tips=[8,12,16,20], mcps=[5,9,13,17]; var curled=0;
+  for(var i=0;i<4;i++){
+    var td=dist2D(lm[tips[i]],lm[0]), md=dist2D(lm[mcps[i]],lm[0]);
+    if(td<md*0.82)curled++;
+  }
+  return curled>=3;
+}
+function dist2D(a,b){var dx=a.x-b.x,dy=a.y-b.y;return Math.sqrt(dx*dx+dy*dy);}
+
+function startCalibration(){
+  calibCorners=[]; calibrating=true; camCalibrated=false;
+  document.getElementById('calib-instruction').style.display='block';
+  document.getElementById('calib-count').textContent='0/4 corners clicked';
+  setCamCalibStatus('CLICK 4 CORNERS OF CHECKERBOARD','#FFD60A');
+  var oc=document.getElementById('cam-overlay');
+  oc.style.pointerEvents='auto'; // enable clicks during calibration
+  oc.style.cursor='crosshair';
+  function onCalibClick(e){
+    var rect=oc.getBoundingClientRect();
+    var x=(e.clientX-rect.left)/rect.width, y=(e.clientY-rect.top)/rect.height;
+    calibCorners.push({x:x,y:y});
+    document.getElementById('calib-count').textContent=calibCorners.length+'/4 corners clicked';
+    if(calibCorners.length===4){
+      oc.removeEventListener('click',onCalibClick);
+      oc.style.pointerEvents='none';
+      oc.style.cursor='default';
+      calibrating=false;
+      var pw=Math.abs(calibCorners[1].x-calibCorners[0].x)*oc.width;
+      var ph=Math.abs(calibCorners[2].y-calibCorners[0].y)*oc.height;
+      pxPerInch=(pw+ph)/2/2; // 2"×2" grid
+      camCalibrated=true;
+      document.getElementById('calib-instruction').style.display='none';
+      setCamCalibStatus('✓ CALIBRATED · '+pxPerInch.toFixed(1)+' px/inch · WORKSPACE LOCKED','#30D158');
+      addLog('Calibrated: '+pxPerInch.toFixed(1)+' px/inch','i');
+    }
+  }
+  oc.addEventListener('click',onCalibClick);
+}
+
+function toggleCameraControl(){
+  if(camMode){stopCameraControl();}
+  else{
+    if(!camStream){addLog('Start camera first.','e');return;}
+    camMode=true; autoOrbitActive=false;
+    handSmooth={X:J.X,Y:J.Y,Z:J.Z,A:J.A,CLAW:J.CLAW};
+    refHandSize=0.18; // reset so it re-learns neutral depth
+    document.getElementById('cam-control-btn').textContent='DISABLE CONTROL';
+    document.getElementById('cam-control-btn').className='btn btn-sm btn-red';
+    document.getElementById('cam-chip-hdr').style.display='inline-flex';
+    document.getElementById('cam-chip-left').style.display='block';
+    document.getElementById('cam-chip-left').textContent='◉ CAMERA CONTROL ACTIVE';
+    addLog('Camera control ENABLED.','i');
+  }
+}
+function calLow(){
+  if(!handDetected){addLog('No hand detected.','e');return;}
+  camLowSize=lastHandSize;
+  updateDepthStatus();
+  addLog('CAL LOW set · size='+lastHandSize.toFixed(3),'i');
+}
+function calHigh(){
+  if(!handDetected){addLog('No hand detected.','e');return;}
+  camHighSize=lastHandSize;
+  updateDepthStatus();
+  addLog('CAL HIGH set · size='+lastHandSize.toFixed(3),'i');
+}
+function updateDepthStatus(){
+  var el=document.getElementById('cam-depth-status'); if(!el)return;
+  var lo=camLowSize!==null, hi=camHighSize!==null;
+  if(lo&&hi){
+    if(camHighSize<=camLowSize){el.textContent='⚠ HIGH must be closer than LOW';el.style.color='#FF5147';}
+    else{el.textContent='✓ CALIBRATED';el.style.color='#30D158';}
+  } else if(lo){el.textContent='LOW ✓ — now set HIGH';el.style.color='#C9A64D';}
+  else if(hi){el.textContent='HIGH ✓ — now set LOW';el.style.color='#C9A64D';}
+  else{el.textContent='NOT SET';el.style.color='rgba(232,221,208,.3)';}
+}
+function stopCameraControl(){
+  camMode=false;
+  var btn=document.getElementById('cam-control-btn');
+  if(btn){btn.textContent='ENABLE CONTROL';btn.className='btn btn-sm btn-gold';}
+  document.getElementById('cam-chip-hdr').style.display='none';
+  document.getElementById('cam-chip-left').style.display='none';
+}
+function setCamStatus(msg,color){var el=document.getElementById('cam-status');if(!el)return;el.textContent='● '+msg;el.style.color=color||'rgba(232,221,208,0.4)';}
+function setCamCalibStatus(msg,color){var el=document.getElementById('cam-calib-status');if(!el)return;el.textContent=msg;el.style.color=color||'rgba(232,221,208,0.35)';}
+function updateHandUI(conf,label){
+  var fill=document.getElementById('hand-conf-fill'); if(fill)fill.style.width=(conf*100)+'%';
+  var lbl=document.getElementById('hand-conf-lbl'); if(lbl)lbl.textContent=label;
+}
+
+// ── UI UPDATE ─────────────────────────────────────────────────────────────────
+function addLog(txt,type){
+  var el=document.getElementById('con-log-wrap'); if(!el)return;
+  var d=document.createElement('div'); d.className='l'+(type||'m');
+  d.textContent=new Date().toLocaleTimeString('en',{hour12:false})+'  '+txt;
+  el.appendChild(d); el.scrollTop=el.scrollHeight;
+}
+function updateEE(){
+  var fk=computeFK(J);
+  document.getElementById('ee-coords').textContent='X '+fk.ee.x.toFixed(1)+' · Y '+fk.ee.y.toFixed(1)+' · Z '+fk.ee.z.toFixed(1);
+  if(heightLockActive) updateHeightLockHUD();
+}
+function updateConnUI(){
+  var cd=document.getElementById('conn-dot'); cd.className='cdot '+(estopActive?'c-err':connected?'c-on':'c-off');
+  document.getElementById('conn-lbl').textContent=estopActive?'E-STOP':connected?'LIVE · '+(simMode?'SIM':'SERIAL'):'OFFLINE';
+  var dd=document.getElementById('drv-dot'); dd.className='cdot '+(driversEnabled?'c-on':'c-off');
+  document.getElementById('drv-lbl').textContent=driversEnabled?'DRIVERS ON':'DRIVERS OFF';
+  var slc=document.getElementById('sl-c-dot'); if(slc)slc.className='sr-dot '+(estopActive?'c-err':connected?'c-on':'c-off');
+  var slcl=document.getElementById('sl-c-lbl'); if(slcl){slcl.textContent=estopActive?'E-STOP ACTIVE':connected?'CONNECTED · '+(simMode?'SIM':'SERIAL'):'NOT CONNECTED';slcl.className='sr-lbl'+(connected&&!estopActive?' active':'');}
+  var sld=document.getElementById('sl-d-dot'); if(sld)sld.className='sr-dot '+(driversEnabled?'c-on':'c-off');
+  var sldl=document.getElementById('sl-d-lbl'); if(sldl){sldl.textContent=driversEnabled?'DRIVERS ENABLED':'DRIVERS DISABLED';sldl.className='sr-lbl'+(driversEnabled?' active':'');}
+  var hb=document.getElementById('hdr-conn-btn'),db=document.getElementById('dash-conn-btn');
+  [hb,db].forEach(function(b){if(!b)return;b.textContent=connected?'DISCONNECT':'CONNECT';b.className=connected?'btn btn-sm':'btn btn-sm btn-gold';});
+  var dBtn=document.getElementById('drv-btn'); if(dBtn)dBtn.textContent=driversEnabled?'DISABLE':'ENABLE';
+  var eb=document.getElementById('hdr-estop-btn'); eb.textContent=estopActive?'✓ CLEAR':'⚠ STOP'; eb.className=estopActive?'btn btn-sm btn-gold':'btn btn-sm btn-red';
+  if(!connected){var fc=document.getElementById('fw-chip');if(fc)fc.style.display='none';}
+}
+function updateActUI(){
+  var hChip=document.getElementById('act-chip-hdr'),hLbl=document.getElementById('act-lbl-hdr');
+  var lChip=document.getElementById('act-chip-left');
+  document.querySelectorAll('.acard').forEach(function(c){c.classList.toggle('run',c.dataset.name===runAct);c.style.borderColor='';});
+  document.querySelectorAll('.aplay-btn,.astop-btn').forEach(function(b){var it=b.dataset.name===runAct;if(b.classList.contains('astop-btn'))b.style.display=it?'':'none';if(b.classList.contains('aplay-btn'))b.style.display=it?'none':'';});
+  if(runAct){
+    var a=ACTIVITIES.find(function(x){return x.name===runAct;});
+    hChip.style.display='inline-flex'; hLbl.textContent=a.label;
+    lChip.style.display='block'; lChip.textContent='▶ '+a.label+(a.loops?' · LOOP':'');
+    document.querySelectorAll('.acard').forEach(function(c){if(c.dataset.name===runAct)c.style.borderColor=a.color;});
+  } else {
+    hChip.style.display='none'; lChip.style.display='none';
+  }
+}
+function togglePanel(name){
+  document.querySelectorAll('.fp').forEach(function(p){if(p.id!=='fp-'+name)p.classList.remove('open');});
+  var fp=document.getElementById('fp-'+name); if(fp)fp.classList.toggle('open');
+  document.querySelectorAll('.nbtn').forEach(function(b){b.classList.toggle('on',b.dataset.panel===name&&fp&&fp.classList.contains('open'));});
+}
+
+// ── THREE.JS SCENE ────────────────────────────────────────────────────────────
+function initScene(){
+  if(typeof THREE==='undefined'){addLog('Three.js failed to load.','e');return;}
+  var canvas=document.getElementById('vcanvas');
+  var scene=new THREE.Scene(); scene.background=new THREE.Color(0x0C0906); scene.fog=new THREE.FogExp2(0x0C0906,.0008);
+
+  var W=canvas.clientWidth||800, H=canvas.clientHeight||600;
+  var camera=new THREE.PerspectiveCamera(40,W/H,0.1,3000);
+  camera.position.set(380,300,460); camera.lookAt(0,210,0);
+
+  var renderer=new THREE.WebGLRenderer({canvas:canvas,antialias:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2.5));
+  renderer.setSize(W,H,false);
+  renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.55;
+
+  // ── LIGHTING — three-point cinematic ──
+  scene.add(new THREE.HemisphereLight(0xC9B58A, 0x0F0A06, 1.0));
+  scene.add(new THREE.AmbientLight(0xB8A98A, 1.4));
+  // Key — warm gold-white from upper-right
+  var key=new THREE.DirectionalLight(0xFFE9C4, 4.2); key.position.set(220,420,180); key.castShadow=true;
+  key.shadow.mapSize.width=4096; key.shadow.mapSize.height=4096;
+  key.shadow.camera.left=-300; key.shadow.camera.right=300; key.shadow.camera.top=500; key.shadow.camera.bottom=-80;
+  key.shadow.radius=4; key.shadow.bias=-0.0008;
+  scene.add(key);
+  // Cool fill from opposite side
+  var fill=new THREE.DirectionalLight(0xB8D4FF, 1.3); fill.position.set(-220,180,-120); scene.add(fill);
+  // Rim light from behind
+  var rim=new THREE.PointLight(0xFFB070, 1.6, 600); rim.position.set(60,140,-280); scene.add(rim);
+  // Hero gold accent light following the arm
+  var goldGlow=new THREE.PointLight(0xFFCC66, 2.1, 380); goldGlow.position.set(0,140,140); scene.add(goldGlow);
+  // Underglow from the floor
+  var underGlow=new THREE.PointLight(0xC9A64D, 0.8, 220); underGlow.position.set(0,4,0); scene.add(underGlow);
+  // Keep this name for compat with old animation code below
+  var key2=fill, topLight=goldGlow;
+
+  // ── FLOOR — dark satin platform + soft grids ──
+  // Real floor (catches shadow)
+  var floor=new THREE.Mesh(new THREE.PlaneGeometry(1400,1400),new THREE.ShadowMaterial({opacity:.55}));
+  floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; scene.add(floor);
+  // Subtle base disc under the arm
+  var baseDisc=new THREE.Mesh(
+    new THREE.CircleGeometry(280,64),
+    new THREE.MeshStandardMaterial({color:0x1B1612,metalness:.45,roughness:.78,side:THREE.DoubleSide}));
+  baseDisc.rotation.x=-Math.PI/2; baseDisc.position.y=0.2; baseDisc.receiveShadow=true; scene.add(baseDisc);
+  // Subtle gold rim around base disc
+  var baseRim=new THREE.Mesh(new THREE.RingGeometry(278,282,96),
+    new THREE.MeshBasicMaterial({color:0xC9A64D,transparent:true,opacity:.22,side:THREE.DoubleSide}));
+  baseRim.rotation.x=-Math.PI/2; baseRim.position.y=0.3; scene.add(baseRim);
+  // Two-layer grid: tight inner + broad outer
+  var grid1=new THREE.GridHelper(560,28,0x2A1F12,0x14100C); grid1.position.y=0.4; scene.add(grid1);
+  var grid2=new THREE.GridHelper(1200,24,0x0F0C09,0x0A0807); grid2.position.y=0.35; scene.add(grid2);
+  // Concentric reach rings (10cm, 25cm, 40cm)
+  [100,250,400].forEach(function(r,i){
+    var seg=64,pts=[];
+    for(var j=0;j<=seg;j++){var a=j/seg*Math.PI*2;pts.push(Math.cos(a)*r,0.5,Math.sin(a)*r);}
+    var rg=new THREE.BufferGeometry();rg.setAttribute('position',new THREE.Float32BufferAttribute(pts,3));
+    scene.add(new THREE.Line(rg,new THREE.LineBasicMaterial({color:0xC9A64D,opacity:.04+i*.02,transparent:true})));
+  });
+
+  // Workspace dome (max reach)
+  var maxReach=L1+L2+L3-12;
+  var domeGeo=new THREE.SphereGeometry(maxReach,28,18,0,Math.PI*2,0,Math.PI/2);
+  var domeMat=new THREE.MeshBasicMaterial({color:0xC9A64D,transparent:true,opacity:.025,wireframe:true,side:THREE.DoubleSide});
+  var dome=new THREE.Mesh(domeGeo,domeMat);dome.position.y=L0+COL_H;scene.add(dome);
+
+  // EE motion trail — last N positions, fade old → new
+  var TRAIL_LEN=120;
+  var trailPositions=[];
+  var trailGeo=new THREE.BufferGeometry();
+  trailGeo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(TRAIL_LEN*3),3));
+  trailGeo.setAttribute('color',new THREE.BufferAttribute(new Float32Array(TRAIL_LEN*3),3));
+  var trailMat=new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:.85,linewidth:2});
+  var trail=new THREE.Line(trailGeo,trailMat);scene.add(trail);
+  // Glow ball at EE
+  var eeGlow=new THREE.Mesh(new THREE.SphereGeometry(2.4,12,10),new THREE.MeshBasicMaterial({color:0xFFE9B0,transparent:true,opacity:.85}));
+  scene.add(eeGlow);
+  var eeHalo=new THREE.Mesh(new THREE.SphereGeometry(5,16,12),new THREE.MeshBasicMaterial({color:0xC9A64D,transparent:true,opacity:.18}));
+  scene.add(eeHalo);
+  // Vertical drop line from EE to floor
+  var dropGeo=new THREE.BufferGeometry();dropGeo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(6),3));
+  var dropLine=new THREE.Line(dropGeo,new THREE.LineDashedMaterial({color:0xC9A64D,opacity:.28,transparent:true,dashSize:4,gapSize:4}));
+  scene.add(dropLine);
+
+  // ── MATERIALS ──
+  // Anodized aluminum body — warm grey, soft satin
+  var mMain    = new THREE.MeshStandardMaterial({color:0xC8C2B8,metalness:.55,roughness:.42});
+  // Hard-anodized black structural — knuckles, motor housings
+  var mBlack   = new THREE.MeshStandardMaterial({color:0x1A1814,metalness:.78,roughness:.32});
+  // Brushed steel — bolts, pivots, output flanges
+  var mSteel   = new THREE.MeshStandardMaterial({color:0x9B9890,metalness:.88,roughness:.18});
+  // Gold accent — signature rings, fascia, caps
+  var mAccent  = new THREE.MeshStandardMaterial({color:0xD4AE5A,metalness:.92,roughness:.10,emissive:new THREE.Color(0xC9A64D),emissiveIntensity:.32});
+  // Carbon-look composite — arm tubes
+  var mCarbon  = new THREE.MeshStandardMaterial({color:0x222018,metalness:.65,roughness:.30});
+  // NEMA motor face plates (dark machined)
+  var mMotor   = new THREE.MeshStandardMaterial({color:0x2A2620,metalness:.82,roughness:.22});
+  // Glowing emissive (LEDs)
+  var mLEDg    = new THREE.MeshBasicMaterial({color:0x4FD18B});
+  var mLEDgold = new THREE.MeshBasicMaterial({color:0xFFE0A0});
+  var mLEDred  = new THREE.MeshBasicMaterial({color:0xFF5547});
+  var mGripPad = new THREE.MeshStandardMaterial({color:0x9A2520,metalness:.18,roughness:.65});
+  // Aliases used by older lines below
+  var mDark = mBlack;
+  var mJoint = mSteel;
+  var mLight = mMain;
+
+  function add(parent,geo,mat){var m=new THREE.Mesh(geo,mat);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m;}
+
+  var armRoot=new THREE.Group(); scene.add(armRoot);
+  // For pulsing LED references
+  var ledList=[];
+  function makeLED(parent,x,y,z,color,size){
+    var led=new THREE.Mesh(new THREE.SphereGeometry(size||1.6,10,8),
+      new THREE.MeshStandardMaterial({color:color,emissive:new THREE.Color(color),emissiveIntensity:1.4}));
+    led.position.set(x,y,z); parent.add(led); ledList.push(led); return led;
+  }
+  // Helper to make a NEMA-style stepper motor body (square)
+  function makeStepperMotor(parent,size,depth,color){
+    var g=new THREE.Group(); parent.add(g);
+    // Main housing (square cross-section)
+    var body=add(g,new THREE.BoxGeometry(size,size,depth),new THREE.MeshStandardMaterial({color:color||0x1A1814,metalness:.85,roughness:.30}));
+    // End plates (slightly larger)
+    var endP=size*1.08;
+    var ep1=add(g,new THREE.BoxGeometry(endP,endP,2.5),mSteel); ep1.position.z=depth/2-1;
+    var ep2=add(g,new THREE.BoxGeometry(endP,endP,2.5),mSteel); ep2.position.z=-depth/2+1;
+    // 4 corner bolts on front face
+    [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(function(c){
+      var b=add(g,new THREE.CylinderGeometry(1.4,1.4,3,8),mSteel);
+      b.rotation.x=Math.PI/2; b.position.set(c[0]*(size/2-3),c[1]*(size/2-3),depth/2+1);
+    });
+    // Output shaft + boss
+    var boss=add(g,new THREE.CylinderGeometry(size*.22,size*.22,4,18),mSteel);
+    boss.rotation.x=Math.PI/2; boss.position.z=depth/2+3;
+    var shaft=add(g,new THREE.CylinderGeometry(size*.07,size*.07,8,12),mSteel);
+    shaft.rotation.x=Math.PI/2; shaft.position.z=depth/2+8;
+    // Cable tail (small black box on back)
+    var cable=add(g,new THREE.BoxGeometry(size*.5,size*.24,4),new THREE.MeshStandardMaterial({color:0x0E0C09,metalness:.2,roughness:.85}));
+    cable.position.set(0,-size*.18,-depth/2-2);
+    return g;
+  }
+  // Helper for a planetary gearbox cylinder housing
+  function makePlanetaryGearbox(parent,radius,length){
+    var g=new THREE.Group(); parent.add(g);
+    var hsg=add(g,new THREE.CylinderGeometry(radius,radius,length,32),new THREE.MeshStandardMaterial({color:0x2A2520,metalness:.78,roughness:.28}));
+    hsg.rotation.x=Math.PI/2;
+    // Front output flange (slightly larger)
+    var flange=add(g,new THREE.CylinderGeometry(radius*1.18,radius*1.18,4,32),mSteel);
+    flange.rotation.x=Math.PI/2; flange.position.z=length/2+2;
+    // Output disc with 4 bolt holes
+    var outDisc=add(g,new THREE.CylinderGeometry(radius*.85,radius*.85,2,28),mSteel);
+    outDisc.rotation.x=Math.PI/2; outDisc.position.z=length/2+5;
+    // Visible "viewport" gold accent ring
+    var ring=new THREE.Mesh(new THREE.TorusGeometry(radius*.95,.6,8,40),mAccent);
+    ring.rotation.y=Math.PI/2; ring.position.z=length/2+1; g.add(ring);
+    // Bolt circle on flange face
+    for(var k=0;k<6;k++){var ba=k/6*Math.PI*2;var bx=Math.cos(ba)*radius*.95,by=Math.sin(ba)*radius*.95;
+      var b=add(g,new THREE.CylinderGeometry(.9,.9,3.5,6),mSteel);b.rotation.x=Math.PI/2;b.position.set(bx,by,length/2+3);
+    }
+    return g;
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // ── BASE (DOME / SKIRT — STATIC) ──
+  // Lathed flared dome with bolt circle around the bottom rim.
+  // ══════════════════════════════════════════════════════════════════════════
+  var basePts=[
+    new THREE.Vector2(0,0),
+    new THREE.Vector2(95,0),               // outer floor radius
+    new THREE.Vector2(95,3),               // edge thickness
+    new THREE.Vector2(91,5),               // small chamfer
+    new THREE.Vector2(78,10),              // start of skirt curve
+    new THREE.Vector2(58,18),
+    new THREE.Vector2(42,28),
+    new THREE.Vector2(38,38),
+    new THREE.Vector2(40, L0-4),
+    new THREE.Vector2(44, L0-1),
+    new THREE.Vector2(44, L0),             // top edge
+    new THREE.Vector2(0, L0)
+  ];
+  add(armRoot, new THREE.LatheGeometry(basePts,64), mMain);
+  // Bolt circle around the bottom flange
+  for(var bb=0;bb<14;bb++){var ba=bb/14*Math.PI*2;
+    var bx=Math.cos(ba)*88, bz=Math.sin(ba)*88;
+    add(armRoot,new THREE.CylinderGeometry(2.0,2.0,2.5,10),mBlack).position.set(bx,4,bz);
+    add(armRoot,new THREE.CylinderGeometry(1.4,1.4,1.5,6),mSteel).position.set(bx,5.2,bz);
+  }
+  // Subtle steel highlight ring at top of base
+  var baseTopRing=new THREE.Mesh(new THREE.TorusGeometry(44, 0.7, 8, 48),mSteel);
+  baseTopRing.rotation.x=Math.PI/2; baseTopRing.position.y=L0; armRoot.add(baseTopRing);
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // ── ROTATING DISC + SHOULDER MOTOR HOUSING (rotates around Y) ──
+  // The flat disc on top of the dome rotates with the base joint.
+  // The rectangular box on top of it IS the shoulder motor + planetary
+  // gearbox housing — there is no separate "column" any more.
+  // ══════════════════════════════════════════════════════════════════════════
+  var rotGroup=new THREE.Group(); rotGroup.position.y=L0; armRoot.add(rotGroup);
+
+  // Visible rotating disc on top of the dome — slightly thick, with subtle rim
+  var disc=add(rotGroup,new THREE.CylinderGeometry(46,46,7,64),mMain);
+  disc.position.y=3.5;
+  // Dark seam ring at the disc edge (the "rotation joint" line)
+  var discSeam=new THREE.Mesh(new THREE.TorusGeometry(46.2, 0.4, 6, 64),mBlack);
+  discSeam.rotation.x=Math.PI/2; discSeam.position.y=3.5; rotGroup.add(discSeam);
+
+  // ── SHOULDER MOTOR BOX ──
+  // Tall rectangular housing that sits on the disc.
+  // Centre is at y = (boxBottom + boxTop) / 2 in rotGroup space.
+  // The shoulder pivot cylinder cantilevers from the +X side of this box at y = COL_H.
+  var boxBottom = 7;                             // sits flush with top of disc
+  var boxTopY   = COL_H - 2;                     // box top just below the shoulder pivot
+  var boxH      = boxTopY - boxBottom;
+  var boxW      = 70;                            // X width
+  var boxD      = 70;                            // Z depth
+  var motorBox  = add(rotGroup, new THREE.BoxGeometry(boxW, boxH, boxD), mMain);
+  motorBox.position.y = (boxBottom + boxTopY) / 2;
+  // Bevel/edge highlight along top of the box
+  add(rotGroup,new THREE.BoxGeometry(boxW+1, 1.2, boxD+1), mBlack).position.y = boxTopY-0.4;
+  // Vertical fins along the sides (cooling detail like the CAD)
+  for(var fi=0;fi<5;fi++){
+    var fx = -boxW/2 + 14 + fi*10;
+    add(rotGroup,new THREE.BoxGeometry(0.8, boxH-12, boxD+0.6), mBlack)
+      .position.set(fx, motorBox.position.y, 0);
+  }
+  // Front face panel detail (lighter inset)
+  add(rotGroup,new THREE.BoxGeometry(boxW-18, boxH-22, 1), mSteel)
+    .position.set(0, motorBox.position.y, boxD/2 + 0.5);
+  // Small status LED low on the front face
+  makeLED(rotGroup, 22, boxBottom + 12, boxD/2 + 1.5, 0x4FD18B, 0.9);
+  // Small access panel detail near bottom front
+  add(rotGroup,new THREE.BoxGeometry(10, 6, 1), mBlack)
+    .position.set(-22, boxBottom + 10, boxD/2 + 1);
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // ── SHOULDER PIVOT (horizontal cantilever cylinder) ──
+  // Static.  Cylinder is centred on the pivot axis at y = COL_H, extending
+  // along ±X.  The +X end is the gearbox output flange (where the upper arm
+  // bolts on); the −X end is the back of the gearbox.
+  // ══════════════════════════════════════════════════════════════════════════
+  var shoulderHousing=new THREE.Group();
+  shoulderHousing.position.y=COL_H; rotGroup.add(shoulderHousing);
+
+  // The horizontal gearbox cylinder
+  var shCyl=add(shoulderHousing, new THREE.CylinderGeometry(28,28,72,48), mMain);
+  shCyl.rotation.z=Math.PI/2;
+  // End-face cap on each side, with bolt circle (the signature feature from your CAD)
+  for(var ec=-1;ec<=1;ec+=2){
+    var cap=add(shoulderHousing, new THREE.CylinderGeometry(30,30,3,48), mMain);
+    cap.rotation.z=Math.PI/2; cap.position.x=ec*37;
+    // Inset darker recess in the centre of the cap
+    var rec=add(shoulderHousing, new THREE.CylinderGeometry(20,20,1,40), mBlack);
+    rec.rotation.z=Math.PI/2; rec.position.x=ec*38.7;
+    // Bolt circle (10 bolts, like your CAD)
+    for(var bc=0;bc<10;bc++){var bca=bc/10*Math.PI*2;
+      var bcy=Math.sin(bca)*25, bcz=Math.cos(bca)*25;
+      var bcb=add(shoulderHousing, new THREE.CylinderGeometry(1.2,1.2,1.6,6), mBlack);
+      bcb.rotation.z=Math.PI/2; bcb.position.set(ec*39.0, bcy, bcz);
+    }
+  }
+  // Subtle thin gold ring at the seam where the cylinder meets each end cap
+  for(var ge=-1; ge<=1; ge+=2){
+    var gr=new THREE.Mesh(new THREE.TorusGeometry(28, 0.35, 6, 48), mAccent);
+    gr.rotation.y=Math.PI/2; gr.position.x = ge*35.5; shoulderHousing.add(gr);
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // ── UPPER ARM (rotates around X) ──
+  // Cantilevered off the +X side of the gearbox.  Single sculpted body that
+  // tapers smoothly from the hub up to a small elbow housing.
+  // ══════════════════════════════════════════════════════════════════════════
+  var upperArmGroup=new THREE.Group(); shoulderHousing.add(upperArmGroup);
+  // Output hub disc (bolts to the gearbox output flange)
+  var ulHub=add(upperArmGroup, new THREE.CylinderGeometry(20,20,7,40), mMain);
+  ulHub.rotation.z=Math.PI/2; ulHub.position.x=39;
+  // Bolt circle on the hub face
+  for(var hbc=0;hbc<8;hbc++){var hbca=hbc/8*Math.PI*2;
+    var hb2=add(upperArmGroup, new THREE.CylinderGeometry(0.9,0.9,1.5,6), mBlack);
+    hb2.rotation.z=Math.PI/2;
+    hb2.position.set(43, Math.sin(hbca)*14, Math.cos(hbca)*14);
+  }
+  // Sculpted upper arm body — clean teardrop tapering up to elbow
+  var upperPts=[
+    new THREE.Vector2(0, 0),
+    new THREE.Vector2(20, 0),
+    new THREE.Vector2(22, 8),
+    new THREE.Vector2(20, 22),
+    new THREE.Vector2(17, 40),
+    new THREE.Vector2(15, L1*0.35),
+    new THREE.Vector2(14, L1*0.55),
+    new THREE.Vector2(15, L1*0.78),
+    new THREE.Vector2(18, L1-22),
+    new THREE.Vector2(20, L1-10),
+    new THREE.Vector2(20, L1-2),
+    new THREE.Vector2(0,  L1-2)
+  ];
+  add(upperArmGroup, new THREE.LatheGeometry(upperPts,32), mMain);
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // ── ELBOW (square housing — refined to match CAD) ──
+  // Smaller than before; round bolt-circle cap on the top face suggests a
+  // motor mounted vertically into the elbow joint.
+  // ══════════════════════════════════════════════════════════════════════════
+  var elbowPivot=new THREE.Group(); elbowPivot.position.y=L1; upperArmGroup.add(elbowPivot);
+  // Main square housing block (smaller now)
+  var ebW=38, ebH=34, ebD=38;
+  add(elbowPivot, new THREE.BoxGeometry(ebW, ebH, ebD), mMain).position.y=ebH/2 - 4;
+  // Top circular face plate (the round bolt pattern visible in your CAD)
+  var topPlate=add(elbowPivot, new THREE.CylinderGeometry(15,15,2,40), mMain);
+  topPlate.position.y = ebH - 5;
+  // Inset darker recess
+  add(elbowPivot, new THREE.CylinderGeometry(12,12,0.8,32), mBlack).position.y = ebH - 4;
+  // 8 small bolts around the top face plate
+  for(var tbi=0;tbi<8;tbi++){var tba=tbi/8*Math.PI*2;
+    add(elbowPivot, new THREE.CylinderGeometry(0.8,0.8,1.5,6), mBlack)
+      .position.set(Math.cos(tba)*13.5, ebH-4, Math.sin(tba)*13.5);
+  }
+  // Centre bolt
+  add(elbowPivot, new THREE.CylinderGeometry(2.0,2.0,1.6,12), mSteel).position.y = ebH - 3.4;
+  // Small triangular fillet details on the side faces (matches CAD chamfered look)
+  [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(function(c){
+    var fil=add(elbowPivot, new THREE.BoxGeometry(2.5, 2.5, 2.5), mMain);
+    fil.position.set(c[0]*(ebW/2-1.2), ebH/2 - 4 + ebH/2 - 1.2, c[1]*(ebD/2-1.2));
+  });
+  // Status LED on the housing
+  makeLED(elbowPivot, 0, ebH - 3, ebD/2 + 1, 0x6DA8FF, 0.9);
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // ── FOREARM CONE (rotates around X = elbow joint) ──
+  // ══════════════════════════════════════════════════════════════════════════
+  var forearmGroup=new THREE.Group(); elbowPivot.add(forearmGroup);
+  // Short connecting collar
+  var collar=add(forearmGroup, new THREE.CylinderGeometry(19, 21, 12, 40), mMain);
+  collar.position.y = 8;
+  // Tapered cone body for the forearm portion (y=0 .. L2)
+  var foreConePts=[
+    new THREE.Vector2(0, 4),
+    new THREE.Vector2(21, 4),
+    new THREE.Vector2(20, 14),
+    new THREE.Vector2(19, L2*0.55),
+    new THREE.Vector2(18, L2*0.85),
+    new THREE.Vector2(17, L2)
+  ];
+  add(forearmGroup, new THREE.LatheGeometry(foreConePts,40), mMain);
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // ── WRIST CONE (rotates around Y) ──
+  // Continuation of the cone tapering down toward the face plate.
+  // ══════════════════════════════════════════════════════════════════════════
+  var wristGroup=new THREE.Group(); wristGroup.position.y=L2; forearmGroup.add(wristGroup);
+  // Cone ends in a face plate; claw mounts to that plate
+  var clawLen   = 28;             // claw assembly length past the face plate
+  var faceY     = L3 - clawLen;   // y where the cone tip face plate sits
+  var wristConePts=[
+    new THREE.Vector2(0, 0),
+    new THREE.Vector2(17, 0),
+    new THREE.Vector2(16, faceY*0.18),
+    new THREE.Vector2(14, faceY*0.45),
+    new THREE.Vector2(12, faceY*0.72),
+    new THREE.Vector2(10.5, faceY-3),
+    new THREE.Vector2(10.5, faceY)
+  ];
+  add(wristGroup, new THREE.LatheGeometry(wristConePts,40), mMain);
+  // Subtle thin gold ring at the wrist seam (rotation joint marker)
+  var wSeam=new THREE.Mesh(new THREE.TorusGeometry(17, 0.3, 6, 40), mAccent);
+  wSeam.rotation.x=Math.PI/2; wSeam.position.y=0.5; wristGroup.add(wSeam);
+
+  // ── End face plate (the circular cap with bolt circle from your CAD) ──
+  var facePlate = add(wristGroup, new THREE.CylinderGeometry(11, 11, 2.5, 40), mMain);
+  facePlate.position.y = faceY + 1;
+  // Inset darker recess in the centre of the face plate
+  add(wristGroup, new THREE.CylinderGeometry(7, 7, 0.6, 32), mBlack).position.y = faceY + 2.4;
+  // Bolt circle (8 small bolts) — matches the visible pattern in your CAD
+  for(var fbi=0; fbi<8; fbi++){var fba=fbi/8*Math.PI*2;
+    add(wristGroup, new THREE.CylinderGeometry(0.7, 0.7, 1.4, 6), mBlack)
+      .position.set(Math.cos(fba)*9.2, faceY + 2.5, Math.sin(fba)*9.2);
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // ── CLAW (parallel gripper — bolts to the face plate) ──
+  // ══════════════════════════════════════════════════════════════════════════
+  var clawGroup=new THREE.Group();
+  clawGroup.position.y = faceY + 2.5;   // sits on the face plate
+  wristGroup.add(clawGroup);
+  // Quick-disconnect mounting collar
+  add(clawGroup, new THREE.CylinderGeometry(8, 8, 3, 28), mSteel).position.y = 1.5;
+  // Palm body — flattened block holding the slider
+  var palm=add(clawGroup, new THREE.BoxGeometry(20, 7, 14), mMain);
+  palm.position.y = 6.5;
+  // Linear guide rail
+  add(clawGroup, new THREE.BoxGeometry(24, 2.5, 4), mBlack).position.y = 10.5;
+  // Mounting bolts on palm sides
+  [-1,1].forEach(function(s){
+    add(clawGroup, new THREE.CylinderGeometry(0.7,0.7,1.2,6), mBlack)
+      .position.set(s*8.5, 4.0, 6.2);
+  });
+  // Status LED in the palm front
+  var clawLED=new THREE.Mesh(new THREE.SphereGeometry(0.85,10,8),
+    new THREE.MeshBasicMaterial({color:0x4FD18B}));
+  clawLED.position.set(0, 7, 7.3); clawGroup.add(clawLED);
+
+  // Two finger assemblies — slide outward in X based on CLAW value
+  var claw1=new THREE.Group(); clawGroup.add(claw1);
+  var claw2=new THREE.Group(); clawGroup.add(claw2);
+  [claw1,claw2].forEach(function(cg, idx){
+    var sgn = idx===0 ? 1 : -1;
+    add(cg, new THREE.BoxGeometry(4.5, 4.5, 7), mSteel).position.y = 10.5;
+    add(cg, new THREE.BoxGeometry(3.2, 14, 4.8), mMain).position.y = 19;
+    var tipBlk = add(cg, new THREE.BoxGeometry(3.2, 6, 4), mMain);
+    tipBlk.position.set(sgn * -1.0, 27, 0);
+    add(cg, new THREE.BoxGeometry(1.2, 10, 4.2), mGripPad)
+      .position.set(sgn * -1.9, 22, 0);
+    add(cg, new THREE.SphereGeometry(1.4, 10, 8), mMain)
+      .position.set(sgn * -1.0, clawLen - 3.5, 0);
+  });
+  // Note: fingertips at clawGroup.y + (clawLen - 3.5) ≈ L3 (close enough to the EE).
+
+  // ── UPDATE FUNCTION ──
+  updateArmFn=function(j){
+    rotGroup.rotation.y      = -j.X*Math.PI/180;
+    upperArmGroup.rotation.x =  j.Y*Math.PI/180;
+    forearmGroup.rotation.x  =  j.Z*Math.PI/180;
+    wristGroup.rotation.y    =  j.A*Math.PI/180;
+    // Parallel gripper — fingers slide outward along local X.
+    // CLAW 0 → 100 maps to 1.5 mm gap (closed) → 9 mm spread (fully open).
+    var sp = (j.CLAW||20) / 100;
+    var openX = 1.5 + sp * 7.5;
+    claw1.position.x =  openX;
+    claw2.position.x = -openX;
+    // LED reflects state: red=closed, gold=mid, green=open
+    clawLED.material.color.setHex(sp<.20?0xFF5547:(sp>.80?0x4FD18B:0xC9A64D));
+  };
+
+  // ── ENVIRONMENT ACCENT ELEMENTS ──
+  // Glowing accent ring around base
+  var lightDisc=new THREE.Mesh(new THREE.RingGeometry(82,90,64),
+    new THREE.MeshBasicMaterial({color:0xC9A64D,transparent:true,opacity:.12,side:THREE.DoubleSide}));
+  lightDisc.rotation.x=-Math.PI/2; lightDisc.position.y=0.6; scene.add(lightDisc);
+  // 12 short radial accent lines (workspace markers)
+  for(var rl=0;rl<12;rl++){var rla=rl/12*Math.PI*2;
+    var rlGeo=new THREE.BufferGeometry();
+    rlGeo.setAttribute('position',new THREE.Float32BufferAttribute(
+      [Math.cos(rla)*94,0.5,Math.sin(rla)*94, Math.cos(rla)*270,0.5,Math.sin(rla)*270],3));
+    scene.add(new THREE.Line(rlGeo,new THREE.LineBasicMaterial({color:0xC9A64D,opacity:.06,transparent:true})));
+  }
+  // 4 corner pylons — glowing markers at workspace corners
+  [[200,200],[-200,200],[200,-200],[-200,-200]].forEach(function(p){
+    var pyl=new THREE.Mesh(new THREE.CylinderGeometry(2,2,40,6),
+      new THREE.MeshStandardMaterial({color:0x1A1612,metalness:.7,roughness:.4,emissive:new THREE.Color(0xC9A64D),emissiveIntensity:.25}));
+    pyl.position.set(p[0],20,p[1]); scene.add(pyl);
+    // Glowing top
+    var pylTop=new THREE.Mesh(new THREE.SphereGeometry(2.4,12,8),new THREE.MeshBasicMaterial({color:0xFFE0A0}));
+    pylTop.position.set(p[0],42,p[1]); scene.add(pylTop); ledList.push(pylTop);
+  });
+  // Holographic data ring floating above shoulder height
+  var dataRing=new THREE.Mesh(new THREE.TorusGeometry(180,0.6,8,72),
+    new THREE.MeshBasicMaterial({color:0xC9A64D,transparent:true,opacity:.08}));
+  dataRing.rotation.x=Math.PI/2; dataRing.position.y=320; scene.add(dataRing);
+  var dataRing2=new THREE.Mesh(new THREE.TorusGeometry(160,0.4,6,60),
+    new THREE.MeshBasicMaterial({color:0xC9A64D,transparent:true,opacity:.05}));
+  dataRing2.rotation.x=Math.PI/2; dataRing2.position.y=380; scene.add(dataRing2);
+
+  // Camera orbit
+  var orbit={h:-.7,v:.36,r:680}, isDrag=false, lx=0, ly=0;
+  function updCam(){var vc=clamp(orbit.v,.06,1.4);camera.position.set(orbit.r*Math.cos(vc)*Math.cos(orbit.h),orbit.r*Math.sin(vc)+30,orbit.r*Math.cos(vc)*Math.sin(orbit.h));camera.lookAt(0,210,0);}
+  updCam();
+  canvas.addEventListener('mousedown',function(e){isDrag=true;lx=e.clientX;ly=e.clientY;});
+  window.addEventListener('mousemove',function(e){if(!isDrag)return;orbit.h-=(e.clientX-lx)*.006;orbit.v+=(e.clientY-ly)*.006;lx=e.clientX;ly=e.clientY;});
+  window.addEventListener('mouseup',function(){isDrag=false;});
+  canvas.addEventListener('wheel',function(e){orbit.r=clamp(orbit.r+e.deltaY*.5,180,2400);},{passive:true});
+  new ResizeObserver(function(){var cw=canvas.clientWidth,ch=canvas.clientHeight;if(cw>0&&ch>0){renderer.setSize(cw,ch,false);camera.aspect=cw/ch;camera.updateProjectionMatrix();}}).observe(canvas);
+
+  // Render loop
+  var t=0, lastTrailT=0;
+  (function anim(){
+    requestAnimationFrame(anim); t+=.014;
+
+    key.intensity = 4.0 + Math.sin(t*.55)*.3;
+    fill.intensity = 1.2 + Math.cos(t*.8)*.15;
+    goldGlow.intensity = 1.8 + Math.sin(t*1.4)*.5;
+    underGlow.intensity = 0.7 + Math.sin(t*1.8)*.25;
+    baseTopRing.rotation.z += .0018;
+    domeMat.opacity = .020 + Math.sin(t*.6)*.008;
+    // Animate base ring breathing
+    baseRim.material.opacity = .18 + Math.sin(t*1.2)*.08;
+    // Floating data rings rotate slowly in opposite directions
+    dataRing.rotation.z += .0008;
+    dataRing2.rotation.z -= .0014;
+    dataRing.material.opacity = .06 + Math.sin(t*.8)*.03;
+    dataRing2.material.opacity = .04 + Math.cos(t*.9)*.025;
+    // Pulse LEDs subtly
+    var pulse = .8 + Math.sin(t*2.4)*.35;
+    for(var li=0;li<ledList.length;li++){
+      if(ledList[li].material.emissiveIntensity!==undefined){
+        ledList[li].material.emissiveIntensity = pulse;
+      }
+    }
+    updCam(); if(updateArmFn)updateArmFn(J);
+
+    // Update EE position visuals
+    var fk=computeFK(J);
+    eeGlow.position.set(fk.ee.x,fk.ee.y,fk.ee.z);
+    eeHalo.position.copy(eeGlow.position);
+    eeHalo.scale.setScalar(1+Math.sin(t*3.5)*.12);
+    var dpA=dropGeo.attributes.position.array;
+    dpA[0]=fk.ee.x;dpA[1]=fk.ee.y;dpA[2]=fk.ee.z;
+    dpA[3]=fk.ee.x;dpA[4]=0.5;dpA[5]=fk.ee.z;
+    dropGeo.attributes.position.needsUpdate=true;dropLine.computeLineDistances();
+
+    // Capture trail samples ~30Hz
+    if(t-lastTrailT>0.033){
+      lastTrailT=t;
+      trailPositions.push([fk.ee.x,fk.ee.y,fk.ee.z]);
+      if(trailPositions.length>TRAIL_LEN)trailPositions.shift();
+      var pa=trailGeo.attributes.position.array, ca=trailGeo.attributes.color.array;
+      for(var i=0;i<TRAIL_LEN;i++){
+        var src=trailPositions[i]||trailPositions[trailPositions.length-1]||[0,0,0];
+        pa[i*3]=src[0];pa[i*3+1]=src[1];pa[i*3+2]=src[2];
+        var f=trailPositions[i]?(i/TRAIL_LEN):0;
+        ca[i*3]=.79*f;ca[i*3+1]=.65*f;ca[i*3+2]=.30*f;
+      }
+      trailGeo.attributes.position.needsUpdate=true;
+      trailGeo.attributes.color.needsUpdate=true;
+      trailGeo.setDrawRange(0,trailPositions.length);
+    }
+    renderer.render(scene,camera);
+  })();
+}
+
+// ── BUILD UI ──────────────────────────────────────────────────────────────────
+function buildUI(){
+  // Slider thumb colors
+  var st=document.createElement('style');
+  JOINTS.forEach(function(j){st.textContent+='#jsl-'+j.key+'::-webkit-slider-thumb{background:'+j.color+';box-shadow:0 0 8px '+j.color+'}#jsl-'+j.key+'::-moz-range-thumb{background:'+j.color+'}';});
+  document.head.appendChild(st);
+
+  // Bottom joint row
+  var jr=document.getElementById('joint-row');
+  JOINTS.forEach(function(j){
+    var pct=(j.def-j.min)/(j.max-j.min)*100;
+    var d=document.createElement('div'); d.className='jctrl';
+    d.innerHTML='<div class="jc-hd"><span class="jc-name">'+j.name+'</span><span class="jc-val" id="jv-'+j.key+'">'+j.def.toFixed(1)+j.unit+'</span></div><input type="range" class="jsl" id="jsl-'+j.key+'" min="'+j.min+'" max="'+j.max+'" step="0.5" value="'+j.def+'" style="background:linear-gradient(to right,'+j.color+' '+pct+'%,rgba(232,221,208,.08) '+pct+'%)">';
+    jr.appendChild(d);
+    (function(k){
+      document.getElementById('jsl-'+k).addEventListener('mousedown',function(){sliderDragging=true;});
+      document.getElementById('jsl-'+k).addEventListener('touchstart',function(){sliderDragging=true;},{passive:true});
+      document.getElementById('jsl-'+k).addEventListener('input',function(){changeJoint(k,this.value);});
+      document.getElementById('jsl-'+k).addEventListener('change',function(){sliderReleased(k);});
+    }(j.key));
+  });
+
+  // Right panel: joint readouts
+  var rp=document.getElementById('right-panel');
+  JOINTS.forEach(function(j,i){
+    if(i>0)rp.innerHTML+='<div class="jro-div"></div>';
+    rp.innerHTML+='<div class="jro"><span class="jro-key">'+j.name.toUpperCase()+'</span><span class="jro-val" id="jro-val-'+j.key+'" style="color:'+j.color+'">'+j.def.toFixed(1)+j.unit+'</span><div class="jro-bar"><div class="jro-fill" id="jro-fill-'+j.key+'" style="width:50%;background:'+j.color+'"></div></div></div>';
+  });
+
+  // Activity grid
+  var ag=document.getElementById('act-grid');
+  ACTIVITIES.forEach(function(a){
+    var card=document.createElement('div'); card.className='acard'; card.dataset.name=a.name;
+    card.innerHTML='<div class="a-ico" style="color:'+a.color+'">'+a.ic+'</div><div class="a-name">'+a.label+'</div><div class="a-kf">'+(a.loops?'LOOP':'ONCE')+' · '+a.kf.length+' KF</div><div class="a-btns"><button class="btn btn-xs btn-gold aplay-btn" data-name="'+a.name+'" style="background:'+a.color+';border-color:'+a.color+';color:#0C0906">PLAY</button><button class="btn btn-xs astop-btn" data-name="'+a.name+'" style="display:none;color:#FF3B30;border-color:rgba(255,59,48,.35)">STOP</button></div>';
+    card.querySelector('.aplay-btn').addEventListener('click',function(){startAct(a.name);});
+    card.querySelector('.astop-btn').addEventListener('click',stopAct);
+    ag.appendChild(card);
+  });
+
+  // Motor rows (settings)
+  var mr=document.getElementById('motor-rows');
+  JOINTS.filter(function(j){return j.fwAxis;}).forEach(function(j){
+    var row=document.createElement('div'); row.className='motor-blk';
+    row.innerHTML='<div class="motor-t" style="color:'+j.color+'">'+j.name.toUpperCase()+' → fw.'+j.fwAxis+(j.inv?' (INV)':'')+'</div><div class="motor-g"><div><div class="ml">MICROSTEP</div><select class="ps-inp" style="font-size:9px;cursor:pointer">'+ [1,2,4,8,16,32].map(function(v){return '<option'+(v===j.ms?' selected':'')+'>'+v+'</option>';}).join('')+'</select></div><div><div class="ml">STEPS/REV</div><input type="number" value="'+j.spr+'" class="ps-inp" style="font-size:9px"></div><div><div class="ml">GEAR RATIO</div><input type="number" value="'+j.gr+'" step="0.1" class="ps-inp" style="font-size:9px"></div></div>';
+    mr.appendChild(row);
+  });
+
+  // Init joint display
+  JOINTS.forEach(function(j){setJoint(j.key,j.def);});
+  updateConnUI(); updateActUI();
+}
+
+// ── BOOT SEQUENCE ─────────────────────────────────────────────────────────────
+function runBootSequence(onDone){
+  var bs=document.getElementById('boot-screen');
+  if(!bs){onDone();return;}
+  var checks=document.querySelectorAll('.bchk');
+  var bar=document.getElementById('boot-bar');
+  var status=document.getElementById('boot-status');
+  var statuses=['INITIALIZING…','LOADING CORE…','BUILDING SCENE…','SOLVING IK…','ARMING SAFETY…','SYSTEMS NOMINAL'];
+  var i=0;
+  function step(){
+    if(i<checks.length){
+      checks[i].classList.add('ok');
+      checks[i].querySelector('.bchk-stat').textContent='✓ OK';
+      bar.style.width=((i+1)/checks.length*100)+'%';
+      status.textContent=statuses[i+1]||'READY';
+      i++; setTimeout(step,320);
+    } else {
+      status.textContent='READY';
+      setTimeout(function(){
+        bs.classList.add('gone');
+        setTimeout(function(){bs.style.display='none';onDone();},900);
+      },560);
+    }
+  }
+  setTimeout(step,420);
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded',function(){
+  buildUI();
+
+  // Sidebar
+  document.querySelectorAll('.nbtn').forEach(function(b){b.addEventListener('click',function(){togglePanel(b.dataset.panel);});});
+  document.querySelectorAll('.fp-close').forEach(function(b){b.addEventListener('click',function(){var fp=document.getElementById('fp-'+b.dataset.close);if(fp)fp.classList.remove('open');document.querySelectorAll('.nbtn').forEach(function(nb){var f2=document.getElementById('fp-'+nb.dataset.panel);if(f2&&!f2.classList.contains('open'))nb.classList.remove('on');});});});
+
+  // Connect
+  document.getElementById('hdr-conn-btn').addEventListener('click',toggleConnect);
+  document.getElementById('dash-conn-btn').addEventListener('click',toggleConnect);
+  // Estop
+  document.getElementById('hdr-estop-btn').addEventListener('click',function(){if(estopActive)clearEstop();else doEstop();});
+  // Drivers
+  document.getElementById('drv-btn').addEventListener('click',function(){if(driversEnabled)sendCmd('DISABLE ALL');else if(connected&&!estopActive)sendCmd('ENABLE ALL');});
+  // Mode
+  document.getElementById('sel-mode').addEventListener('change',function(){simMode=this.value==='sim';});
+  // Zero
+  document.getElementById('zero-btn').addEventListener('click',zeroJoints);
+  // Height lock
+  document.getElementById('hl-set-btn').addEventListener('click',setHeightLock);
+  document.getElementById('hl-toggle-btn').addEventListener('click',toggleHeightLock);
+  updateHeightLockUI();
+  // Test move
+  document.getElementById('test-btn').addEventListener('click',function(){if(testActive)stopTest();else startTest();});
+  // Presets + commands
+  document.querySelectorAll('[data-preset]').forEach(function(b){b.addEventListener('click',function(){applyPreset(b.dataset.preset);});});
+  document.querySelectorAll('[data-cmd]').forEach(function(b){b.addEventListener('click',function(){sendCmd(b.dataset.cmd);});});
+  // Console
+  document.getElementById('con-send').addEventListener('click',function(){var i=document.getElementById('con-input');if(!i.value.trim())return;sendCmd(i.value.trim());i.value='';});
+  document.getElementById('con-input').addEventListener('keydown',function(e){if(e.key==='Enter'&&this.value.trim()){sendCmd(this.value.trim());this.value='';}});
+  document.getElementById('con-clear').addEventListener('click',function(){document.getElementById('con-log-wrap').innerHTML='';});
+  // Settings apply speeds
+  document.getElementById('apply-spd-btn').addEventListener('click',function(){if(!connected){addLog('Not connected.','e');return;}var sp=document.getElementById('inp-spd').value,ac=document.getElementById('inp-acc').value;['X','Y','Z','A'].forEach(function(ax){sendCmd('SET SPEED '+ax+' '+sp);sendCmd('SET ACCEL '+ax+' '+ac);});});
+
+  // Camera panel
+  document.getElementById('cam-start-btn').addEventListener('click',function(){
+    if(camStream)stopCamera();else startCamera();
+  });
+  document.getElementById('cam-flip-btn').addEventListener('click',function(){
+    camFacing=camFacing==='environment'?'user':'environment';
+    if(camStream)startCamera();
+  });
+  document.getElementById('cam-dl-btn').addEventListener('click',downloadModel);
+  document.getElementById('cam-calib-btn').addEventListener('click',startCalibration);
+  document.getElementById('cam-cal-low-btn').addEventListener('click',calLow);
+  document.getElementById('cam-cal-high-btn').addEventListener('click',calHigh);
+  document.getElementById('cam-control-btn').addEventListener('click',toggleCameraControl);
+  document.getElementById('cam-finger-btn').addEventListener('click',toggleFingerMode);
+  document.getElementById('cam-smooth-sl').addEventListener('input',function(){
+    SMOOTH_ALPHA=parseInt(this.value)/100;
+    document.getElementById('cam-smooth-val').textContent=this.value;
+  });
+
+  // Sync mode selects
+  document.getElementById('s-mode').addEventListener('change',function(){simMode=this.value==='sim';document.getElementById('sel-mode').value=this.value;});
+  document.getElementById('s-baud').addEventListener('change',function(){document.getElementById('sel-baud').value=this.value;});
+
+  // WebSerial check
+  if(!('serial' in navigator)){
+    simMode=true; document.getElementById('sel-mode').value='sim'; document.getElementById('s-mode').value='sim';
+    addLog('WebSerial unavailable — Simulation mode.','i');
+    addLog('For hardware: python3 -m http.server 8888 → http://localhost:8888/armctl.html','i');
+  }
+
+  // Cam overlay click passthrough (not blocking 3D)
+  var camOverlay=document.getElementById('cam-overlay');
+  camOverlay.style.pointerEvents='none'; // only enabled during calibration in startCalibration()
+
+  // Continuous hardware sync — closes any remaining gap every 100ms so the
+  // real arm always reaches wherever the simulation is sitting.
+  setInterval(function(){
+    if(connected&&driversEnabled&&!estopActive&&!sliderDragging) sendAllJointsHW();
+  },100);
+
+  // Safety pill
+  document.querySelectorAll('[data-safety]').forEach(function(b){
+    b.addEventListener('click',function(){applySafetyProfile(b.dataset.safety);});
+  });
+  updateSafetyUI();
+
+  // Confirmation modal buttons
+  document.getElementById('confirm-cancel').addEventListener('click',function(){resolveConfirm(false);});
+  document.getElementById('confirm-ok').addEventListener('click',function(){resolveConfirm(true);});
+  // ESC to cancel modal
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'){
+      var m=document.getElementById('confirm-modal');
+      if(m.classList.contains('open'))resolveConfirm(false);
+    }
+    // Spacebar = STOP ALL panic key (ignores when in text field, slider or button focus)
+    if(e.code==='Space' && !e.repeat
+       && !e.target.matches('input,textarea,button,select,[contenteditable="true"]')){
+      e.preventDefault();
+      if(connected) sendCmd('STOP ALL');
+      doEstop();
+      toast('PANIC STOP — spacebar pressed','err',5000);
+    }
+  });
+
+  // 3D scene
+  initScene();
+  updateConnUI();
+  addLog('ARMCTL V2.1 ready.','i');
+  addLog('Shoulder: 0°=up ±90° · Elbow: 0°=straight ±140° · Wrist: rolls around arm axis','m');
+  addLog('Hardware: NEMA 23 (DM556 8μstep, 5:1 planetary) · NEMA 17 ×3 on CNC shield','m');
+  addLog('Safety: SPACEBAR = panic stop · Drag-then-release sliders only send on release','i');
+
+  // Run boot sequence
+  runBootSequence(function(){
+    toast('System ready — running in '+(simMode?'simulation':'serial')+' mode','ok',3500);
+  });
+});
+</script>
+</body>
+</html>
