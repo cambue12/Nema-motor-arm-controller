@@ -2,7 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>ARMCTL — Precision Motion</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0C0906">
+<meta name="description" content="ARMCTL — browser-based control suite for a 4-axis robotic arm. Live 3D simulation, WebSerial, hand tracking, layered safety system.">
+<meta name="color-scheme" content="dark">
+<title>ARMCTL · Precision Motion</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -220,6 +224,22 @@ select.sel:focus{border-color:rgba(232,221,208,.3)}
 .sp-btn[data-safety="FAST"].on{background:rgba(255,140,66,.18);color:#FFB070;box-shadow:inset 0 0 0 1px rgba(255,140,66,.4)}
 .sp-btn[data-safety="SAFE"].on{background:rgba(79,209,139,.16);color:#7FECAA;box-shadow:inset 0 0 0 1px rgba(79,209,139,.35)}
 
+/* ── EMERGENCY STOP OVERLAY ─────────────────────────────────────────────── */
+#estop-overlay{position:fixed;inset:0;z-index:600;background:rgba(20,4,4,.55);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;flex-direction:column;animation:estop-pulse 1.4s ease-in-out infinite}
+#estop-overlay.on{display:flex}
+@keyframes estop-pulse{0%,100%{background:rgba(20,4,4,.55)}50%{background:rgba(60,8,8,.7)}}
+[id^="estop-bar-"]{position:absolute;background:linear-gradient(90deg,#FF3B30,#FF6B30);box-shadow:0 0 24px rgba(255,59,48,.7)}
+#estop-bar-tl{top:0;left:0;width:50%;height:5px}
+#estop-bar-tr{top:0;right:0;width:50%;height:5px}
+#estop-bar-bl{bottom:0;left:0;width:50%;height:5px}
+#estop-bar-br{bottom:0;right:0;width:50%;height:5px}
+#estop-content{text-align:center;padding:50px 60px;background:rgba(8,4,4,.92);border:2px solid #FF3B30;border-radius:4px;box-shadow:0 0 60px rgba(255,59,48,.4),0 0 0 1px rgba(255,59,48,.18)}
+#estop-icon{font-size:60px;color:#FF5147;margin-bottom:18px;text-shadow:0 0 30px rgba(255,59,48,.8);animation:estop-pulse-icon 1s ease-in-out infinite}
+@keyframes estop-pulse-icon{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+#estop-title{font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:8px;color:#FF5147;margin-bottom:10px;text-shadow:0 0 20px rgba(255,59,48,.5)}
+#estop-sub{font-family:'Share Tech Mono',monospace;font-size:11px;letter-spacing:2px;color:rgba(255,180,180,.85);margin-bottom:26px;line-height:1.7}
+#estop-clear{font-size:14px;padding:11px 28px;letter-spacing:3px}
+
 /* MISC */
 ::-webkit-scrollbar{width:2px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -293,6 +313,18 @@ select.sel:focus{border-color:rgba(232,221,208,.3)}
 <!-- Scanlines -->
 <div style="position:fixed;inset:0;z-index:2;pointer-events:none;background:repeating-linear-gradient(0deg,transparent 0px,transparent 2px,rgba(0,0,0,.028) 2px,rgba(0,0,0,.028) 3px);opacity:.7"></div>
 
+<!-- E-STOP FULLSCREEN OVERLAY (visible whenever estop is active) -->
+<div id="estop-overlay">
+  <div id="estop-bar-tl"></div><div id="estop-bar-tr"></div>
+  <div id="estop-bar-bl"></div><div id="estop-bar-br"></div>
+  <div id="estop-content">
+    <div id="estop-icon">⚠</div>
+    <div id="estop-title">EMERGENCY STOP ACTIVE</div>
+    <div id="estop-sub">Drivers disabled · all motion halted · clear obstacles before resuming</div>
+    <button id="estop-clear" class="btn btn-gold">CLEAR E-STOP</button>
+  </div>
+</div>
+
 <!-- HEIGHT LOCK HUD -->
 <div id="hl-hud" style="display:none;position:fixed;z-index:15;top:72px;left:50%;transform:translateX(-50%);pointer-events:none;background:rgba(12,9,6,.9);border:1px solid rgba(201,166,77,.4);border-radius:3px;padding:7px 20px;backdrop-filter:blur(18px);box-shadow:0 0 0 1px rgba(201,166,77,.06),0 4px 32px rgba(201,166,77,.14);align-items:center;gap:14px">
   <div style="width:6px;height:6px;border-radius:50%;background:#C9A64D;box-shadow:0 0 10px rgba(201,166,77,.8);animation:gp 1.8s infinite;flex-shrink:0"></div>
@@ -322,8 +354,8 @@ select.sel:focus{border-color:rgba(232,221,208,.3)}
     <button class="nbtn" data-panel="console">CONSOLE</button>
   </nav>
   <div class="hdr-acts">
-    <button class="btn btn-sm" id="hdr-conn-btn">CONNECT</button>
-    <button class="btn btn-sm btn-red" id="hdr-estop-btn">⚠ STOP</button>
+    <button class="btn btn-sm" id="hdr-conn-btn" title="Connect to the arm over WebSerial (or simulator)">CONNECT</button>
+    <button class="btn btn-sm btn-red" id="hdr-estop-btn" title="Emergency stop · halts all motion · also: spacebar">⚠ STOP</button>
   </div>
 </div>
 
@@ -359,14 +391,14 @@ select.sel:focus{border-color:rgba(232,221,208,.3)}
   <div id="joint-row"></div>
   <div id="action-row">
     <div class="ag">
-      <button class="btn btn-sm btn-gold" id="dash-conn-btn">CONNECT</button>
-      <button class="btn btn-sm" id="drv-btn">ENABLE</button>
+      <button class="btn btn-sm btn-gold" id="dash-conn-btn" title="Connect to the arm">CONNECT</button>
+      <button class="btn btn-sm" id="drv-btn" title="Enable / disable stepper motor drivers">ENABLE</button>
     </div>
     <div class="ag">
       <button class="btn btn-sm" data-preset="Home">HOME</button>
       <button class="btn btn-sm" data-preset="Ready">READY</button>
       <button class="btn btn-sm" data-preset="Reach">REACH</button>
-      <button class="btn btn-sm" id="zero-btn">ZERO</button>
+      <button class="btn btn-sm" id="zero-btn" title="Zero all joint angles in the simulation (does not move motors)">ZERO</button>
     </div>
     <!-- HEIGHT LOCK -->
     <div style="width:1px;height:16px;background:rgba(232,221,208,.08);flex-shrink:0"></div>
@@ -382,7 +414,7 @@ select.sel:focus{border-color:rgba(232,221,208,.3)}
       <button class="sp-btn" data-safety="FAST">FAST</button>
     </div>
     <div class="ag">
-      <button class="btn btn-sm" id="test-btn">TEST MOVE</button>
+      <button class="btn btn-sm" id="test-btn" title="Demo cycle — sweeps base/shoulder/elbow within IK constraints">TEST MOVE</button>
       <button class="btn btn-sm btn-red" data-cmd="STOP ALL" style="font-weight:700">⏹ STOP ALL</button>
     </div>
     <select class="sel" id="sel-mode"><option value="sim">SIMULATION</option><option value="serial">SERIAL</option></select>
@@ -851,6 +883,7 @@ function sendJointHW(key){
   }
   // Cap to MAX_STEPS_PER_CMD — large moves get chunked safely across sync ticks
   var capped=Math.max(-SAFETY.MAX_STEPS_PER_CMD,Math.min(SAFETY.MAX_STEPS_PER_CMD,fullDelta));
+  if(capped===0)return; // safety: never advance lastSentSteps if nothing actually goes out
   lastSentSteps[key]+=capped;
   if(!motionInProgress[key]){motionInProgress[key]=true;updateMotionUI();}
   sendCmd('MOVE '+d.fwAxis+' '+capped);
@@ -1029,17 +1062,19 @@ function changeJoint(key,val){
 }
 function sliderReleased(key){
   sliderDragging=false;
-  if(!connected||!driversEnabled||estopActive){sendJointHW(key);return;}
-  // Confirm if we're sending a big move
   var d=jd(key);
-  if(!d.fwAxis){sendJointHW(key);return;}
-  var stepsAhead=jointTargetSteps(key)-lastSentSteps[key];
-  var degAhead=Math.abs(stepsAhead)/(d.spr*d.ms*d.gr/360);
-  if(degAhead>SAFETY.CONFIRM_DEG){
-    confirmAction('LARGE SLIDER MOVE',
-      'You released the <b>'+d.name+'</b> slider <b>'+degAhead.toFixed(0)+'°</b> from the current arm position.<br>The arm will travel that distance — clear the path.',
-      false,function(){sendJointHW(key);});
-  } else { sendJointHW(key); }
+  // Confirm only when actually about to move real hardware
+  if(connected && driversEnabled && !estopActive && d.fwAxis){
+    var stepsAhead=jointTargetSteps(key)-lastSentSteps[key];
+    var degAhead=Math.abs(stepsAhead)/(d.spr*d.ms*d.gr/360);
+    if(degAhead>SAFETY.CONFIRM_DEG){
+      confirmAction('LARGE SLIDER MOVE',
+        'You released the <b>'+d.name+'</b> slider <b>'+degAhead.toFixed(0)+'°</b> from the current arm position.<br>The arm will travel that distance — clear the path.',
+        false,function(){sendJointHW(key);});
+      return;
+    }
+  }
+  sendJointHW(key);
 }
 function jogAxis(key,dir){
   if(estopActive)return;
@@ -1078,10 +1113,12 @@ function doEstop(){
   if(connected){sendCmd('STOP ALL');sendCmd('DISABLE ALL');}
   motionInProgress={X:false,Y:false,Z:false,A:false};updateMotionUI();
   updateConnUI();addLog('[EMERGENCY STOP]','e');toast('EMERGENCY STOP','err',4000);
+  var ov=document.getElementById('estop-overlay'); if(ov) ov.classList.add('on');
 }
 function clearEstop(){
   estopActive=false;updateConnUI();addLog('E-Stop cleared.','i');
   toast('E-Stop cleared — drivers still OFF','warn',3000);
+  var ov=document.getElementById('estop-overlay'); if(ov) ov.classList.remove('on');
   if(connected) applySafetyProfile(safetyProfile);
 }
 
@@ -1335,27 +1372,29 @@ function startCamera(){
     addLog('Camera error: '+e.message,'e');
   });
 }
+var frameLoopId=null;
 function stopCamera(){
   stopCameraControl();
+  if(frameLoopId!==null){cancelAnimationFrame(frameLoopId);frameLoopId=null;}
   if(camStream){camStream.getTracks().forEach(function(t){t.stop();});camStream=null;}
   // Keep mpHands alive so the model doesn't need to be re-downloaded
-  var vid=document.getElementById('cam-video'); vid.srcObject=null;
-  document.getElementById('cam-calib-btn').disabled=true;
-  document.getElementById('cam-control-btn').disabled=true;
-  document.getElementById('cam-cal-low-btn').disabled=true;
-  document.getElementById('cam-cal-high-btn').disabled=true;
-  document.getElementById('cam-finger-btn').disabled=true;
+  var vid=document.getElementById('cam-video');
+  if(vid) vid.srcObject=null;
+  ['cam-calib-btn','cam-control-btn','cam-cal-low-btn','cam-cal-high-btn','cam-finger-btn']
+    .forEach(function(id){var b=document.getElementById(id); if(b) b.disabled=true;});
   stopFingerMode();
-  document.getElementById('cam-start-btn').textContent='START CAMERA';
+  var startBtn=document.getElementById('cam-start-btn');
+  if(startBtn) startBtn.textContent='START CAMERA';
   setCamStatus('CAMERA OFFLINE','');
   handDetected=false; updateHandUI(0,'—');
 }
 function startFrameLoop(){
+  if(frameLoopId!==null) cancelAnimationFrame(frameLoopId); // never let two loops run
   var vid=document.getElementById('cam-video');
   var sending=false;
   function loop(){
-    if(!camStream||!mpHands)return;
-    requestAnimationFrame(loop);
+    if(!camStream||!mpHands){frameLoopId=null;return;}
+    frameLoopId=requestAnimationFrame(loop);
     if(vid.readyState<2)return;
     if(!sending){
       sending=true;
@@ -1524,9 +1563,9 @@ function toggleFingerMode(){
   var btn=document.getElementById('cam-finger-btn');
   if(btn){btn.textContent='STOP FINGER';btn.className='btn btn-sm btn-red';}
   var chip=document.getElementById('cam-chip-hdr');
-  chip.textContent='◉ FINGER MODE';chip.style.color='#C9A64D';chip.style.display='inline-flex';
-  document.getElementById('cam-chip-left').style.display='block';
-  document.getElementById('cam-chip-left').textContent='◉ FINGER MODE ACTIVE';
+  if(chip){chip.textContent='◉ FINGER MODE';chip.style.color='#C9A64D';chip.style.display='inline-flex';}
+  var lchip=document.getElementById('cam-chip-left');
+  if(lchip){lchip.style.display='block';lchip.textContent='◉ FINGER MODE ACTIVE';}
   addLog('Finger mode ON — Index=Base  Middle=Shoulder  Ring=Elbow  Pinky=Wrist','i');
   addLog('Bend finger = + direction   Touch thumb = − direction','i');
 }
@@ -1536,9 +1575,12 @@ function stopFingerMode(){
   var btn=document.getElementById('cam-finger-btn');
   if(btn){btn.textContent='FINGER MODE';btn.className='btn btn-sm';}
   var chip=document.getElementById('cam-chip-hdr');
-  if(!camMode){chip.style.display='none';}
-  else{chip.textContent='◉ CAMERA ACTIVE';chip.style.color='#4FD18B';}
-  document.getElementById('cam-chip-left').style.display='none';
+  if(chip){
+    if(!camMode){chip.style.display='none';}
+    else{chip.textContent='◉ CAMERA ACTIVE';chip.style.color='#4FD18B';}
+  }
+  var lchip=document.getElementById('cam-chip-left');
+  if(lchip) lchip.style.display='none';
 }
 
 function isFist(lm){
@@ -1588,7 +1630,7 @@ function toggleCameraControl(){
     if(!camStream){addLog('Start camera first.','e');return;}
     camMode=true; autoOrbitActive=false;
     handSmooth={X:J.X,Y:J.Y,Z:J.Z,A:J.A,CLAW:J.CLAW};
-    refHandSize=0.18; // reset so it re-learns neutral depth
+    lastHandSize=0.18; // reset so it re-learns neutral depth
     document.getElementById('cam-control-btn').textContent='DISABLE CONTROL';
     document.getElementById('cam-control-btn').className='btn btn-sm btn-red';
     document.getElementById('cam-chip-hdr').style.display='inline-flex';
@@ -1634,11 +1676,15 @@ function updateHandUI(conf,label){
 }
 
 // ── UI UPDATE ─────────────────────────────────────────────────────────────────
+var MAX_LOG_LINES = 500;
 function addLog(txt,type){
   var el=document.getElementById('con-log-wrap'); if(!el)return;
   var d=document.createElement('div'); d.className='l'+(type||'m');
   d.textContent=new Date().toLocaleTimeString('en',{hour12:false})+'  '+txt;
-  el.appendChild(d); el.scrollTop=el.scrollHeight;
+  el.appendChild(d);
+  // Cap log length to prevent unbounded DOM growth on long sessions
+  while(el.childElementCount > MAX_LOG_LINES) el.removeChild(el.firstChild);
+  el.scrollTop=el.scrollHeight;
 }
 function updateEE(){
   var fk=computeFK(J);
@@ -1682,7 +1728,11 @@ function togglePanel(name){
 
 // ── THREE.JS SCENE ────────────────────────────────────────────────────────────
 function initScene(){
-  if(typeof THREE==='undefined'){addLog('Three.js failed to load.','e');return;}
+  if(typeof THREE==='undefined'){
+    addLog('Three.js failed to load. Check your internet connection or run python3 -m http.server 8888.','e');
+    toast('3D engine failed to load — check connection','err',8000);
+    return;
+  }
   var canvas=document.getElementById('vcanvas');
   var scene=new THREE.Scene(); scene.background=new THREE.Color(0x0C0906); scene.fog=new THREE.FogExp2(0x0C0906,.0008);
 
@@ -2150,6 +2200,29 @@ function initScene(){
   window.addEventListener('mousemove',function(e){if(!isDrag)return;orbit.h-=(e.clientX-lx)*.006;orbit.v+=(e.clientY-ly)*.006;lx=e.clientX;ly=e.clientY;});
   window.addEventListener('mouseup',function(){isDrag=false;});
   canvas.addEventListener('wheel',function(e){orbit.r=clamp(orbit.r+e.deltaY*.5,180,2400);},{passive:true});
+  // Touch support — single-finger orbit, two-finger pinch zoom
+  var pinchDist0 = null, pinchR0 = null;
+  canvas.addEventListener('touchstart',function(e){
+    if(e.touches.length===1){isDrag=true;lx=e.touches[0].clientX;ly=e.touches[0].clientY;}
+    else if(e.touches.length===2){
+      isDrag=false;
+      var dx=e.touches[0].clientX-e.touches[1].clientX, dy=e.touches[0].clientY-e.touches[1].clientY;
+      pinchDist0=Math.hypot(dx,dy); pinchR0=orbit.r;
+    }
+  },{passive:true});
+  canvas.addEventListener('touchmove',function(e){
+    if(e.touches.length===1 && isDrag){
+      orbit.h-=(e.touches[0].clientX-lx)*.006; orbit.v+=(e.touches[0].clientY-ly)*.006;
+      lx=e.touches[0].clientX; ly=e.touches[0].clientY;
+      e.preventDefault();
+    } else if(e.touches.length===2 && pinchDist0){
+      var dx=e.touches[0].clientX-e.touches[1].clientX, dy=e.touches[0].clientY-e.touches[1].clientY;
+      var d=Math.hypot(dx,dy);
+      orbit.r=clamp(pinchR0*(pinchDist0/d),180,2400);
+      e.preventDefault();
+    }
+  },{passive:false});
+  canvas.addEventListener('touchend',function(){isDrag=false;pinchDist0=null;});
   new ResizeObserver(function(){var cw=canvas.clientWidth,ch=canvas.clientHeight;if(cw>0&&ch>0){renderer.setSize(cw,ch,false);camera.aspect=cw/ch;camera.updateProjectionMatrix();}}).observe(canvas);
 
   // Render loop
@@ -2348,9 +2421,12 @@ document.addEventListener('DOMContentLoaded',function(){
 
   // WebSerial check
   if(!('serial' in navigator)){
-    simMode=true; document.getElementById('sel-mode').value='sim'; document.getElementById('s-mode').value='sim';
-    addLog('WebSerial unavailable — Simulation mode.','i');
-    addLog('For hardware: python3 -m http.server 8888 → http://localhost:8888/armctl.html','i');
+    simMode=true;
+    var smSel=document.getElementById('sel-mode'); if(smSel) smSel.value='sim';
+    var smSel2=document.getElementById('s-mode'); if(smSel2) smSel2.value='sim';
+    addLog('WebSerial unavailable in this browser — Simulation mode only.','i');
+    addLog('For hardware control: open this page in Google Chrome via http://localhost:8888/armctl.html','i');
+    setTimeout(function(){toast('Simulation only — Chrome required for hardware','warn',6000);},2000);
   }
 
   // Cam overlay click passthrough (not blocking 3D)
@@ -2372,19 +2448,35 @@ document.addEventListener('DOMContentLoaded',function(){
   // Confirmation modal buttons
   document.getElementById('confirm-cancel').addEventListener('click',function(){resolveConfirm(false);});
   document.getElementById('confirm-ok').addEventListener('click',function(){resolveConfirm(true);});
-  // ESC to cancel modal
+  // E-stop overlay clear button
+  var estopClear=document.getElementById('estop-clear');
+  if(estopClear) estopClear.addEventListener('click',clearEstop);
+  // Global keyboard shortcuts
   document.addEventListener('keydown',function(e){
+    // ESC: cancel modal first, then close any open floating panel
     if(e.key==='Escape'){
       var m=document.getElementById('confirm-modal');
-      if(m.classList.contains('open'))resolveConfirm(false);
+      if(m && m.classList.contains('open')){resolveConfirm(false);return;}
+      var openPanel=document.querySelector('.fp.open');
+      if(openPanel){
+        openPanel.classList.remove('open');
+        document.querySelectorAll('.nbtn').forEach(function(b){b.classList.remove('on');});
+      }
+      return;
     }
-    // Spacebar = STOP ALL panic key (ignores when in text field, slider or button focus)
+    // Spacebar = STOP ALL panic key (ignores when typing or focusing a control)
     if(e.code==='Space' && !e.repeat
        && !e.target.matches('input,textarea,button,select,[contenteditable="true"]')){
       e.preventDefault();
       if(connected) sendCmd('STOP ALL');
       doEstop();
       toast('PANIC STOP — spacebar pressed','err',5000);
+      return;
+    }
+    // Number 1-4 jumps to presets when not focused on input
+    if(!e.target.matches('input,textarea,select,[contenteditable="true"]')){
+      var presetKeys={'1':'Home','2':'Ready','3':'Reach','4':'Retract'};
+      if(presetKeys[e.key]) applyPreset(presetKeys[e.key]);
     }
   });
 
